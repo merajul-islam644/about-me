@@ -1,6 +1,24 @@
-# Build the Vite app. Config is NOT baked at build time — the release
-# pipeline's secret set reaches the container as runtime env vars instead.
+# Build the Vite app. The release pipeline passes the repo's secret set as
+# kaniko build args — each secret must be DECLARED here as an ARG (kaniko
+# silently drops undeclared ones) and exported with ENV so the RUN below
+# sees it and Vite bakes it into the bundle.
 FROM node:20-alpine AS build
+ARG VITE_BLOCKS_API_URL
+ARG VITE_BLOCKS_APP_DOMAIN
+ARG VITE_BLOCKS_DEV_HOST
+ARG VITE_BLOCKS_DEV_PORT
+ARG VITE_BLOCKS_OIDC_CLIENT_ID
+ARG VITE_BLOCKS_OIDC_SCOPE
+ARG VITE_BLOCKS_OIDC_URL
+ARG VITE_BLOCKS_PROJECT_KEY
+ENV VITE_BLOCKS_API_URL=$VITE_BLOCKS_API_URL \
+    VITE_BLOCKS_APP_DOMAIN=$VITE_BLOCKS_APP_DOMAIN \
+    VITE_BLOCKS_DEV_HOST=$VITE_BLOCKS_DEV_HOST \
+    VITE_BLOCKS_DEV_PORT=$VITE_BLOCKS_DEV_PORT \
+    VITE_BLOCKS_OIDC_CLIENT_ID=$VITE_BLOCKS_OIDC_CLIENT_ID \
+    VITE_BLOCKS_OIDC_SCOPE=$VITE_BLOCKS_OIDC_SCOPE \
+    VITE_BLOCKS_OIDC_URL=$VITE_BLOCKS_OIDC_URL \
+    VITE_BLOCKS_PROJECT_KEY=$VITE_BLOCKS_PROJECT_KEY
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci

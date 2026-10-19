@@ -7,6 +7,7 @@ import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import LoginPage from "./components/LoginPage";
 import CallbackPage from "./components/CallbackPage";
+import Chatbot from "./components/Chatbot";
 import EditPage from "./components/EditPage";
 import CvPage from "./components/CvPage";
 import { CvShelf, PortfolioShelf } from "./components/ShelfPage";
@@ -108,6 +109,9 @@ const App = () => {
             authenticated when they land here. */}
         <Route path="/login/callback" element={<CallbackPage />} />
       </Routes>
+      {/* The chat launcher floats over every page — it lives outside the
+          Routes so route changes never unmount an ongoing conversation. */}
+      <Chatbot />
     </>
   );
 };

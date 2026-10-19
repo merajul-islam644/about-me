@@ -15,11 +15,13 @@ RUN npm run build
 FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 RUN chown -R 1000:1000 /usr/share/nginx/html
-COPY --chmod=755 nginx-env.sh /usr/local/bin/write-env.sh
+COPY nginx-env.sh /usr/local/bin/write-env.sh
+# chmod via RUN, not COPY --chmod — kaniko may not apply the flag.
+RUN chmod 755 /usr/local/bin/write-env.sh
 COPY nginx.conf /etc/nginx/nginx.conf
 COPY nginx-default.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8080
 USER 1000
-# The CMD wrapper — not an entrypoint.d hook: the platform's deployment
-# proved not to run those, while an explicit command always runs.
-CMD ["sh", "-c", "/usr/local/bin/write-env.sh && exec nginx -g 'daemon off;'"]
+# ";" on purpose: nginx must start even if the env.js write fails — a
+# missing config only breaks login, never the public pages.
+CMD ["sh", "-c", "/usr/local/bin/write-env.sh; exec nginx -g 'daemon off;'"]

@@ -1,17 +1,8 @@
 import { motion } from "framer-motion";
+import { usePortfolio } from "../portfolio/portfolio-context";
 
 const Skills = () => {
-  const skills = [
-    "HTML",
-    "CSS",
-    "Tailwind CSS",
-    "JavaScript",
-    "Typescript",
-    "React.js",
-    "Next.js",
-    "Redux",
-    "Git & GitHub",
-  ];
+  const { content } = usePortfolio();
 
   const containerVariants = {
     hidden: {},
@@ -45,7 +36,7 @@ const Skills = () => {
           initial="hidden"
           animate="show"
         >
-          {skills.map((skill) => (
+          {content?.skills.map((skill) => (
             <motion.span
               key={skill}
               className="bg-gray-700 px-6 py-3 rounded-full shadow cursor-default hover:bg-sky-500 transition-all duration-300 text-white font-medium"

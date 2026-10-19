@@ -1,24 +1,40 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../auth/auth-context";
+import { usePortfolio } from "../portfolio/portfolio-context";
 
 const Navbar = () => {
   const location = useLocation()
   const [isOpen, setIsOpen] = useState(false);
+  const { status, claims, logout } = useAuth();
+  // The brand comes from the signed-in user's content; signed-out visitors
+  // see the site default, exactly as before.
+  const { content } = usePortfolio();
+
+  const handleLogout = async () => {
+    await logout();
+  };
 
   const links = [
-    { name: "Home", to: "/" },
+    { name: "Intro", to: "/" },
     { name: "About", to: "/about" },
     { name: "Skills", to: "/skills" },
     { name: "Projects", to: "/projects" },
     { name: "Contact", to: "/contact" },
+    // Editing lives on its own page — the six view pages stay pure display.
+    // Everyone sees the link: signed-out visitors are sent to login (or
+    // signup) first, then land straight in the editor.
+    { name: "Edit portfolio", to: "/edit" },
   ];
 
   return (
     <nav className="bg-gray-800 sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-16">
-        <h2 className="text-2xl font-bold text-sky-400">Merajul</h2>
+        <h2 className="text-2xl font-bold text-sky-400">
+          {content?.brand ?? "Merajul"}
+        </h2>
 
-        <ul className="hidden md:flex gap-6">
+        <ul className="hidden md:flex gap-6 items-center">
           {links.map((link) => (
             <li key={link.name}>
               <Link
@@ -33,6 +49,24 @@ const Navbar = () => {
               </Link>
             </li>
           ))}
+          <li>
+            {status === "authenticated" ? (
+              <button
+                onClick={handleLogout}
+                title={claims?.email || "Signed in"}
+                className="cursor-pointer px-3 py-1.5 rounded bg-sky-500 hover:bg-sky-400 text-white text-sm font-semibold transition-colors"
+              >
+                Sign out
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                className="cursor-pointer px-3 py-1.5 rounded bg-sky-500 hover:bg-sky-400 text-white text-sm font-semibold transition-colors"
+              >
+                Sign in
+              </Link>
+            )}
+          </li>
         </ul>
 
         <div className="md:hidden">
@@ -90,6 +124,26 @@ const Navbar = () => {
               {link.name}
             </Link>
           ))}
+          {status === "authenticated" ? (
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                handleLogout();
+              }}
+              title={claims?.email || "Signed in"}
+              className="cursor-pointer text-left text-sky-300 hover:text-sky-200 text-lg"
+            >
+              Sign out
+            </button>
+          ) : (
+            <Link
+              to="/login"
+              className="cursor-pointer text-sky-300 hover:text-sky-200 text-lg"
+              onClick={() => setIsOpen(false)}
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       )}
     </nav>

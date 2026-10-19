@@ -1,0 +1,9 @@
+{
+  "security": [
+    { "schemaName": "Portfolio", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "Portfolio", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "Portfolio", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "Portfolio", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] }
+  ],
+  "policies": []
+}

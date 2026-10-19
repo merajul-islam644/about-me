@@ -5,14 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "cert": "node scripts/generate-cert.mjs",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
+    "@seliseblocks/client": "^0.2.0",
     "@tailwindcss/vite": "^4.1.18",
     "framer-motion": "^12.29.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -30,6 +33,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
+    "selfsigned": "^5.5.0",
     "vite": "^7.2.4"
   }
 }

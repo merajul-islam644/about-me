@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Dev certificates (per-machine, never committed)
+.cert/
+
+# Local tooling state (agent skills, design baselines, browser logs, npm cache)
+.agents/
+.claude/
+.playwright-mcp/
+npm-cache/

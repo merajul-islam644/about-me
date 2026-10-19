@@ -1,0 +1,26 @@
+{
+  "schemaName": "Portfolio",
+  "collectionName": "Portfolios",
+  "schemaType": 1,
+  "description": "One row per signed-in user holding their whole portfolio as a JSON string.",
+  "fields": [
+    {
+      "name": "UserId",
+      "type": "String",
+      "isArray": false,
+      "description": "IAM record id (iam.me().data.itemId) of the owning user"
+    },
+    {
+      "name": "DisplayName",
+      "type": "String",
+      "isArray": false,
+      "description": "Owner display name for portal readability; never rendered"
+    },
+    {
+      "name": "Content",
+      "type": "String",
+      "isArray": false,
+      "description": "The whole portfolio content object, JSON-stringified (version field inside)"
+    }
+  ]
+}

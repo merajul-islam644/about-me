@@ -1,22 +1,12 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Lock, Loader2, Palette, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Lock, Loader2, Palette } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
 import { isLoginConfigured } from "../lib/blocks/config";
 import { startSignup } from "../lib/blocks/auth";
 
 const highlights = [
-  {
-    icon: ShieldCheck,
-    title: "Secured by Blocks IAM",
-    text: "Hosted single sign-on — no credentials are ever stored in this app.",
-  },
-  {
-    icon: Zap,
-    title: "One tap and you're back",
-    text: "You'll be redirected to the secure sign-in page and returned right where you left off.",
-  },
   {
     icon: Palette,
     title: "Everything, unlocked",

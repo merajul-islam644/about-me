@@ -5,6 +5,7 @@ import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
+import { getMenuForMode, getMode } from "../modes";
 
 const Navbar = () => {
   const location = useLocation()
@@ -43,17 +44,19 @@ const Navbar = () => {
     return () => document.removeEventListener("mousedown", onOutside);
   }, [menuOpen]);
 
-  const links = [
-    { name: "Intro", to: "/" },
-    { name: "About", to: "/about" },
-    { name: "Skills", to: "/skills" },
-    { name: "Projects", to: "/projects" },
-    { name: "Contact", to: "/contact" },
-    // Editing lives on its own page — the six view pages stay pure display.
-    // Everyone sees the link: signed-out visitors are sent to login (or
-    // signup) first, then land straight in the editor.
-    { name: "Edit portfolio", to: "/edit" },
-  ];
+  // The menu follows the building mode: showcase pages while browsing the
+  // portfolio, the CV workspace while on /cv — the landing tab switch drives
+  // it (menus live in src/modes.js). The search string matters on /login,
+  // which adopts the mode of the page its returnTo is heading to.
+  const links = getMenuForMode(getMode(location.pathname, location.search).key);
+
+  // On the login page the visitor is "heading to" their returnTo — keep the
+  // menu they clicked highlighted (Edit CV vs Edit portfolio stays visibly
+  // selected, so the redirect reads as a continuation, not a dead end).
+  const highlightPath =
+    location.pathname === "/login"
+      ? new URLSearchParams(location.search).get("returnTo") ?? location.pathname
+      : location.pathname;
 
   return (
     <nav className="bg-gray-800 sticky top-0 z-50 shadow-md">
@@ -68,11 +71,8 @@ const Navbar = () => {
               <li key={link.name}>
                 <Link
                   to={link.to}
-                  smooth={true}
-                  offset={-80}
-                  duration={600}
                   className={`cursor-pointer hover:text-sky-300 text-gray-500
-                  ${location.pathname === link.to && "text-sky-300"}`}
+                  ${highlightPath === link.to && "text-sky-300"}`}
                 >
                   {link.name}
                 </Link>
@@ -181,9 +181,6 @@ const Navbar = () => {
             <Link
               key={link.name}
               to={link.to}
-              smooth={true}
-              offset={-80}
-              duration={600}
               className="cursor-pointer text-gray-300 hover:text-sky-300 text-lg"
               onClick={() => setIsOpen(false)}
             >

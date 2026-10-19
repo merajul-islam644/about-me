@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { usePortfolio } from "../portfolio/portfolio-context";
+import { ModeTabs } from "./ModeTabs";
 
 const Skills = () => {
   const { content } = usePortfolio();
@@ -19,8 +20,12 @@ const Skills = () => {
   };
 
   return (
-    <div className="overflow-auto h-[calc(100vh-64px)]">
-      <div className="min-h-[calc(100vh-64px)] flex flex-col justify-center items-center bg-gray-900 px-6">
+    <div className="overflow-auto h-[calc(100vh-64px)] flex flex-col bg-gray-900">
+      {/* Landing mode switch — Portfolio | CV, right under the navbar. */}
+      <div className="flex justify-center pt-6 px-6">
+        <ModeTabs />
+      </div>
+      <div className="flex-1 flex flex-col justify-center items-center bg-gray-900 px-6 pb-8">
         <motion.h2
           className="text-4xl font-bold mb-10 text-sky-400"
           initial={{ opacity: 0, y: -20 }}

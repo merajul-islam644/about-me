@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import { FolderOpen } from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useAuth } from "../auth/auth-context";
+import { ModeTabs } from "./ModeTabs";
 
 const Projects = () => {
   const { content } = usePortfolio();
@@ -23,8 +24,12 @@ const Projects = () => {
   };
 
   return (
-    <div className="overflow-auto h-[calc(100vh-64px)]">
-      <div className="flex flex-col justify-center items-center min-h-[calc(100vh-64px)] bg-gray-800 px-6 py-10">
+    <div className="overflow-auto h-[calc(100vh-64px)] flex flex-col bg-gray-800">
+      {/* Landing mode switch — Portfolio | CV, right under the navbar. */}
+      <div className="flex justify-center pt-6 px-6">
+        <ModeTabs />
+      </div>
+      <div className="flex-1 flex flex-col justify-center items-center bg-gray-800 px-6 py-10">
 
         <motion.h2
           className="text-4xl font-bold mb-10 text-sky-400 text-center"

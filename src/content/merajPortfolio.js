@@ -64,8 +64,171 @@ export const merajPortfolio = {
 // The public showcase persona: signed-out visitors browse this instead of
 // Meraj's own content — same design and data, placeholder name. Read-only
 // (visitors have no row to save into), so sharing nested objects is fine.
+// The CV block demos the section model so the public /cv view looks like a
+// real document, not an empty shell.
 export const visitorPortfolio = {
   ...merajPortfolio,
   brand: "Jon Doe",
   hero: { ...merajPortfolio.hero, greeting: "Hi, I'm Jon Doe" },
+  cv: {
+    // Every CV page carries sample data — the public showcase is browsable
+    // without login, so no CV page may render empty for visitors. Written as
+    // a complete, recruiter-standard document: summary → experience →
+    // education on Intro; profile + strengths on About; skills, tools and
+    // languages on Skills; three shipped projects; full contact details.
+    sections: [
+      // ---- Intro: summary, experience, education ----
+      {
+        type: "text",
+        page: "intro",
+        title: "Professional Summary",
+        items: [
+          {
+            text: "Frontend developer with 2+ years of hands-on experience building fast, accessible web applications with React and modern tooling. Comfortable owning a feature from design hand-off to production, and happiest when the codebase stays clean and the UI feels effortless.",
+          },
+        ],
+      },
+      {
+        type: "entry",
+        page: "intro",
+        title: "Work Experience",
+        items: [
+          {
+            heading: "Software Engineering Intern",
+            sub: "SELISE Group — Dhaka, Bangladesh",
+            period: "Feb 2025 — Present",
+            details:
+              "• Build and maintain production React features for an enterprise platform\n• Collaborate with senior engineers on code review, testing and CI\n• Delivered shared design-system components now used by three teams",
+          },
+          {
+            heading: "Freelance Web Developer",
+            sub: "Self-employed — Remote",
+            period: "2023 — 2025",
+            details:
+              "• Shipped 6+ client websites with React, Next.js and Tailwind CSS\n• Raised average Lighthouse performance scores from 62 to 94\n• Handled everything client-facing: scoping, estimates and demos",
+          },
+        ],
+      },
+      {
+        type: "entry",
+        page: "intro",
+        title: "Education",
+        items: [
+          {
+            heading: "BSc in Computer Science & Engineering",
+            sub: "University of Dhaka",
+            period: "2019 — 2023",
+            details:
+              "CGPA 3.74 / 4.00 · Final-year project: a real-time collaborative markdown editor",
+          },
+        ],
+      },
+      // ---- About: profile narrative + strengths ----
+      {
+        type: "text",
+        page: "about",
+        title: "Profile",
+        items: [
+          {
+            text: "I am a frontend developer who enjoys turning complex problems into simple, beautiful interfaces. My focus is clean, maintainable code and interfaces that feel fast and effortless.",
+          },
+          {
+            text: "I learn best by building — most of what I know comes from shipping real projects, breaking them, and fixing them again.",
+          },
+        ],
+      },
+      {
+        type: "list",
+        page: "about",
+        title: "Strengths",
+        items: [
+          { text: "Problem solving under real deadlines" },
+          { text: "Clean, maintainable, well-documented code" },
+          { text: "Clear communication with designers and clients" },
+          { text: "Fast, self-driven learning" },
+        ],
+      },
+      // ---- Skills: core stack, tooling, languages ----
+      {
+        type: "list",
+        page: "skills",
+        title: "Core Skills",
+        items: [
+          { text: "React.js" },
+          { text: "JavaScript (ES6+)" },
+          { text: "TypeScript" },
+          { text: "Tailwind CSS" },
+          { text: "Next.js" },
+          { text: "Git & GitHub" },
+        ],
+      },
+      {
+        type: "list",
+        page: "skills",
+        title: "Tools & Technologies",
+        items: [
+          { text: "Vite · Redux Toolkit" },
+          { text: "REST APIs · Fetch / Axios" },
+          { text: "Figma → pixel-accurate UI" },
+          { text: "Chrome DevTools · Lighthouse" },
+          { text: "npm · Vercel · Netlify" },
+        ],
+      },
+      {
+        type: "list",
+        page: "skills",
+        title: "Languages",
+        items: [{ text: "Bengali — Native" }, { text: "English — Fluent" }],
+      },
+      // ---- Projects: three shipped works ----
+      {
+        type: "entry",
+        page: "projects",
+        title: "Projects",
+        items: [
+          {
+            heading: "Portfolio & CV Builder",
+            sub: "React · Vite · Tailwind CSS",
+            period: "2026",
+            details:
+              "A platform where anyone can build their own portfolio and a profession-tailored CV, then publish both.",
+          },
+          {
+            heading: "Task Manager",
+            sub: "React · Local Storage",
+            period: "2025",
+            details:
+              "A drag-and-drop task board with deadlines, labels and offline persistence.",
+          },
+          {
+            heading: "Weather Dashboard",
+            sub: "JavaScript · OpenWeather API",
+            period: "2024",
+            details:
+              "• Searchable 5-day forecast with geolocation\n• Caches the last result for offline viewing",
+          },
+        ],
+      },
+      // ---- Contact: full details + references line ----
+      {
+        type: "list",
+        page: "contact",
+        title: "Contact",
+        items: [
+          { text: "Email — jon.doe@example.com" },
+          { text: "Phone — +880 1712 345 678" },
+          { text: "Location — Dhaka, Bangladesh" },
+          { text: "Portfolio — johndoe.dev" },
+          { text: "LinkedIn — linkedin.com/in/jondoe" },
+          { text: "GitHub — github.com/johndoe" },
+        ],
+      },
+      {
+        type: "text",
+        page: "contact",
+        title: "References",
+        items: [{ text: "Available on request." }],
+      },
+    ],
+  },
 };

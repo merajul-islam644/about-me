@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Mail, Github, Linkedin, Link2, Loader2 } from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { sendContactEmail } from "../lib/blocks/mail";
+import { ModeTabs } from "./ModeTabs";
 
 const Contact = () => {
   const { content } = usePortfolio();
@@ -79,142 +80,148 @@ const Contact = () => {
   };
 
   return (
-    <motion.div
-      className="min-h-[calc(100vh-64px)] flex justify-center items-center bg-linear-to-br from-sky-900 to-pink-900 px-6 py-8"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
+    <div className="min-h-[calc(100vh-64px)] bg-linear-to-br from-sky-900 to-pink-900 flex flex-col">
+      {/* Landing mode switch — Portfolio | CV, right under the navbar. */}
+      <div className="flex justify-center pt-6 px-6">
+        <ModeTabs />
+      </div>
       <motion.div
-        className="max-w-lg w-full bg-gray-800 rounded-3xl shadow-2xl p-10"
-        variants={cardVariants}
-        whileHover={{ scale: 1.02 }}
+        className="flex-1 flex justify-center items-center px-6 pb-8"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
       >
-        <motion.h2
-          className="text-4xl font-bold text-sky-400 mb-6 text-center"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+        <motion.div
+          className="max-w-lg w-full bg-gray-800 rounded-3xl shadow-2xl p-10"
+          variants={cardVariants}
+          whileHover={{ scale: 1.02 }}
         >
-          Get in Touch
-        </motion.h2>
-
-        <motion.p
-          className="text-gray-300 text-lg mb-8 text-center"
-          variants={itemVariants}
-        >
-          {contact?.intro}
-        </motion.p>
-
-        <motion.div className="flex flex-col gap-4 items-center mb-6">
-          <motion.a
-            href={contact?.mail.href}
-            className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.mail} transition-colors duration-300`}
-            whileHover={iconHover}
+          <motion.h2
+            className="text-4xl font-bold text-sky-400 mb-6 text-center"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
           >
-            <Mail size={20} className="text-white"/>
-            {contact?.mail.label}
-          </motion.a>
+            Get in Touch
+          </motion.h2>
 
-          <motion.a
-            href={contact?.github.href}
-            className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.github} transition-colors duration-300`}
-            whileHover={iconHover}
+          <motion.p
+            className="text-gray-300 text-lg mb-8 text-center"
+            variants={itemVariants}
           >
-            <Github size={20} className="text-white"/>
-            {contact?.github.label}
-          </motion.a>
+            {contact?.intro}
+          </motion.p>
 
-          <motion.a
-            href={contact?.linkedin.href}
-            className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.linkedin} transition-colors duration-300`}
-            whileHover={iconHover}
-          >
-            <Linkedin size={20} className="text-white"/>
-            {contact?.linkedin.label}
-          </motion.a>
-
-          {/* Extra contacts added from the edit page — generic link icon. */}
-          {(contact?.extras ?? []).map((extra) => (
-            <motion.a
-              key={extra.id}
-              href={extra.href}
-              className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.extra} transition-colors duration-300`}
-              whileHover={iconHover}
-            >
-              <Link2 size={20} className="text-white" />
-              {extra.label}
-            </motion.a>
-          ))}
-        </motion.div>
-
-        {/* Contact form: delivers a real email to the owner's inbox. The
-            gradient pill keeps the old Send Email button's styling. */}
-        {ownerEmail ? (
-          <form
-            onSubmit={handleSend}
-            className="rounded-xl bg-gray-900/50 border border-white/10 p-4 flex flex-col gap-3"
-          >
-            <p className="text-sm font-medium text-gray-300">Send a message</p>
-            <input
-              type="text"
-              value={fromName}
-              onChange={(event) => setFromName(event.target.value)}
-              placeholder="Your name"
-              className={inputClass}
-            />
-            <input
-              type="email"
-              value={fromEmail}
-              onChange={(event) => setFromEmail(event.target.value)}
-              placeholder="Your email"
-              className={inputClass}
-            />
-            <textarea
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              placeholder="Your message"
-              rows={4}
-              className={`${inputClass} resize-none`}
-            />
-            <motion.button
-              type="submit"
-              disabled={sending}
-              className="inline-flex items-center justify-center gap-2 self-center bg-linear-to-r from-sky-500 to-pink-500 text-white font-bold px-6 py-3 rounded-full shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100 transition-transform duration-300"
-              whileTap={{ scale: 0.95 }}
-            >
-              {sending ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Sending…
-                </>
-              ) : (
-                "Send Email"
-              )}
-            </motion.button>
-            {sent && (
-              <p className="text-sm text-green-400 text-center" role="status">
-                Email sent — thanks for reaching out!
-              </p>
-            )}
-            {formError && (
-              <p className="text-sm text-red-400 text-center" role="alert">
-                {formError}
-              </p>
-            )}
-          </form>
-        ) : (
-          <motion.div className="text-center">
+          <motion.div className="flex flex-col gap-4 items-center mb-6">
             <motion.a
               href={contact?.mail.href}
-              className="inline-block bg-linear-to-r from-sky-500 to-pink-500 text-white font-bold px-6 py-3 rounded-full shadow-lg hover:scale-105 transition-transform duration-300"
-              whileTap={{ scale: 0.95 }}
+              className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.mail} transition-colors duration-300`}
+              whileHover={iconHover}
             >
-              Send Email
+              <Mail size={20} className="text-white"/>
+              {contact?.mail.label}
             </motion.a>
+
+            <motion.a
+              href={contact?.github.href}
+              className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.github} transition-colors duration-300`}
+              whileHover={iconHover}
+            >
+              <Github size={20} className="text-white"/>
+              {contact?.github.label}
+            </motion.a>
+
+            <motion.a
+              href={contact?.linkedin.href}
+              className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.linkedin} transition-colors duration-300`}
+              whileHover={iconHover}
+            >
+              <Linkedin size={20} className="text-white"/>
+              {contact?.linkedin.label}
+            </motion.a>
+
+            {/* Extra contacts added from the edit page — generic link icon. */}
+            {(contact?.extras ?? []).map((extra) => (
+              <motion.a
+                key={extra.id}
+                href={extra.href}
+                className={`flex items-center gap-2 text-gray-200 font-medium bg-gray-700 px-6 py-3 rounded-full shadow-md ${linkClass.extra} transition-colors duration-300`}
+                whileHover={iconHover}
+              >
+                <Link2 size={20} className="text-white" />
+                {extra.label}
+              </motion.a>
+            ))}
           </motion.div>
-        )}
+
+          {/* Contact form: delivers a real email to the owner's inbox. The
+              gradient pill keeps the old Send Email button's styling. */}
+          {ownerEmail ? (
+            <form
+              onSubmit={handleSend}
+              className="rounded-xl bg-gray-900/50 border border-white/10 p-4 flex flex-col gap-3"
+            >
+              <p className="text-sm font-medium text-gray-300">Send a message</p>
+              <input
+                type="text"
+                value={fromName}
+                onChange={(event) => setFromName(event.target.value)}
+                placeholder="Your name"
+                className={inputClass}
+              />
+              <input
+                type="email"
+                value={fromEmail}
+                onChange={(event) => setFromEmail(event.target.value)}
+                placeholder="Your email"
+                className={inputClass}
+              />
+              <textarea
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                placeholder="Your message"
+                rows={4}
+                className={`${inputClass} resize-none`}
+              />
+              <motion.button
+                type="submit"
+                disabled={sending}
+                className="inline-flex items-center justify-center gap-2 self-center bg-linear-to-r from-sky-500 to-pink-500 text-white font-bold px-6 py-3 rounded-full shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-wait disabled:hover:scale-100 transition-transform duration-300"
+                whileTap={{ scale: 0.95 }}
+              >
+                {sending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Sending…
+                  </>
+                ) : (
+                  "Send Email"
+                )}
+              </motion.button>
+              {sent && (
+                <p className="text-sm text-green-400 text-center" role="status">
+                  Email sent — thanks for reaching out!
+                </p>
+              )}
+              {formError && (
+                <p className="text-sm text-red-400 text-center" role="alert">
+                  {formError}
+                </p>
+              )}
+            </form>
+          ) : (
+            <motion.div className="text-center">
+              <motion.a
+                href={contact?.mail.href}
+                className="inline-block bg-linear-to-r from-sky-500 to-pink-500 text-white font-bold px-6 py-3 rounded-full shadow-lg hover:scale-105 transition-transform duration-300"
+                whileTap={{ scale: 0.95 }}
+              >
+                Send Email
+              </motion.a>
+            </motion.div>
+          )}
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };
 

@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Check, Loader2, RotateCcw, Save } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
-import { normalizeContent } from "../content/portfolioShape";
+import { normalizeContent, getActivePortfolio } from "../content/portfolioShape";
+import { TextField } from "./edit/fields";
 import { FREE_PROJECT_LIMIT, isAdminProfile, useEntitlement } from "../payments/useEntitlement";
 import { HeroForm } from "./edit/HeroForm";
 import { AboutForm } from "./edit/AboutForm";
@@ -67,6 +68,10 @@ const EditPage = () => {
   const [draft, setDraft] = useState(content);
   const [saveState, setSaveState] = useState(null); // null | "saved" | error message
 
+  // The forms edit the ACTIVE portfolio's fields (they sit at the content
+  // root as mirrors) — saving writes them back into that portfolio's entry.
+  const activePortfolio = getActivePortfolio(content);
+
   const selectSection = (key) => {
     setActiveKey(key);
     try {
@@ -88,7 +93,25 @@ const EditPage = () => {
   const handleSave = async () => {
     setSaveState(null);
     try {
-      await save(normalizeContent(draft, content));
+      // Write the edited fields (and the shelf name) back into the active
+      // portfolio's entry — the normalize pass re-mirrors them to the root
+      // for every reader.
+      const savedPortfolios = (content.portfolios ?? []).map((pf) =>
+        pf.id === activePortfolio?.id
+          ? {
+              ...pf,
+              name: draft.name?.trim() || pf.name,
+              hero: draft.hero,
+              about: draft.about,
+              skills: draft.skills,
+              projects: draft.projects,
+              contact: draft.contact,
+            }
+          : pf
+      );
+      await save(
+        normalizeContent({ ...draft, portfolios: savedPortfolios }, content)
+      );
       setSaveState("saved");
       setTimeout(() => setSaveState(null), 2500);
     } catch (error) {
@@ -105,8 +128,19 @@ const EditPage = () => {
               Edit portfolio
             </h2>
             <p className="text-gray-400 mt-2 text-sm md:text-base">
-              Changes show on your live pages as soon as you save.
+              Changes show on your live pages as soon as you save. You are
+              editing “{activePortfolio?.name ?? "your portfolio"}”.
             </p>
+            {/* Which of your portfolios this is — the name is what your
+                shelf (/library) lists it under. */}
+            <div className="mt-3 max-w-xs">
+              <TextField
+                label="Portfolio name"
+                value={draft.name ?? ""}
+                onChange={(value) => setDraft({ ...draft, name: value })}
+                placeholder="e.g. Developer portfolio"
+              />
+            </div>
           </div>
           <ExportButton draft={draft} />
         </header>

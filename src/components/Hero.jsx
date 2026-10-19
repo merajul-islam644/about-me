@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Camera, Loader2 } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
@@ -6,11 +7,23 @@ import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { AccentText } from "../content/AccentText";
+import { getActiveCv } from "../content/portfolioShape";
+import { getMode } from "../modes";
+import { ModeTabs } from "./ModeTabs";
+import { CvDocument } from "./cv/CvDocument";
 
 const Hero = () => {
   const { content } = usePortfolio();
   const { status, profile } = useAuth();
   const { url, uploading, error, upload } = useProfilePicture(profile?.userId);
+  const { pathname } = useLocation();
+
+  // CV mode swaps the words, not the face: same layout and picture, but the
+  // ACTIVE CV's hero fields (the owner picks which of their CVs is public)
+  // instead of the portfolio's.
+  const activeCv = getActiveCv(content);
+  const hero =
+    getMode(pathname).key === "cv" && activeCv ? activeCv : content?.hero;
 
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
   // this user uploads their own picture.
@@ -25,7 +38,13 @@ const Hero = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] flex flex-col md:flex-row items-center justify-center p-6 md:p-10 bg-gray-800 gap-8">
+    <div className="min-h-[calc(100vh-64px)] bg-gray-800 flex flex-col">
+      {/* Landing mode switch — Portfolio | CV, right under the navbar. */}
+      <div className="flex justify-center pt-6 px-6">
+        <ModeTabs />
+      </div>
+
+      <div className="flex-1 flex flex-col md:flex-row items-center justify-center p-6 md:p-10 gap-8">
 
       <div className="flex flex-col items-center gap-3">
         <motion.div
@@ -88,7 +107,7 @@ const Hero = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.5 }}
         >
-          {content?.hero.greeting}
+          {hero.greeting}
         </motion.h1>
 
         <motion.h2
@@ -97,7 +116,7 @@ const Hero = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.7 }}
         >
-          {content?.hero.title}
+          {hero.title}
         </motion.h2>
 
         <motion.p
@@ -107,8 +126,8 @@ const Hero = () => {
           transition={{ duration: 0.6, delay: 0.9 }}
         >
           <AccentText
-            text={content?.hero.bio.text}
-            accentClass={content?.hero.bio.accentClass}
+            text={hero.bio.text}
+            accentClass={hero.bio.accentClass}
           />
         </motion.p>
 
@@ -118,7 +137,7 @@ const Hero = () => {
           animate={{ opacity: 1 }}
           transition={{ staggerChildren: 0.1, delayChildren: 1 }}
         >
-          {content?.hero.skills.map((skill, index) => (
+          {hero.skills.map((skill, index) => (
             <motion.span
               key={index}
               className={`${skill.color} text-white px-3 py-1 rounded-full text-xs sm:text-sm font-medium`}
@@ -131,6 +150,18 @@ const Hero = () => {
           ))}
         </motion.div>
       </motion.div>
+      </div>
+
+      {/* CV mode: the document body — sections assigned to the Intro page
+          under the hero; the rest live on the other CV pages. Downloading
+          lives in Edit CV's toolbar. */}
+      {getMode(pathname).key === "cv" && (
+        <CvDocument
+          sections={activeCv?.sections?.filter(
+            (section) => section.page === "intro"
+          )}
+        />
+      )}
     </div>
   );
 };

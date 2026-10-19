@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { Download, FileText, Loader2 } from "lucide-react";
+import { Download, FileText, Loader2, Lock } from "lucide-react";
 import { useAuth } from "../../auth/auth-context";
 import { usePortfolio } from "../../portfolio/portfolio-context";
 import { useProfilePicture } from "../../portfolio/useProfilePicture";
+import { useEntitlement } from "../../payments/useEntitlement";
 import { normalizeContent } from "../../content/portfolioShape";
-import mypic from "../../assets/original-profile-picture.png";
 import {
   buildPortfolioHtml,
   toDataUrl,
@@ -13,20 +13,26 @@ import {
 } from "../../portfolio/portfolio-export";
 
 // One-click export of the portfolio next to the header: a self-contained
-// .html website file and a print-ready .pdf document. Both export the CURRENT
-// DRAFT (unsaved edits included) via the `draft` prop from EditPage. The
-// profile picture is fetched and embedded at download time. The PDF module
-// (jspdf, ~350 KB) is loaded on demand so it never weighs down first paint.
+// .html website file (free) and a print-ready .pdf document (Pro — the
+// Upgrade tab unlocks it). Both export the CURRENT DRAFT (unsaved edits
+// included) via the `draft` prop from EditPage. The profile picture is
+// fetched and embedded at download time. The PDF module (jspdf, ~350 KB) is
+// loaded on demand so it never weighs down first paint.
 export const ExportButton = ({ draft }) => {
   const { profile } = useAuth();
   const { content } = usePortfolio();
   const { url } = useProfilePicture(profile?.userId);
+  const { loading: entitlementLoading, plan } = useEntitlement();
   const [busy, setBusy] = useState(null); // null | "html" | "pdf"
   const [error, setError] = useState(null);
+  const [pdfHint, setPdfHint] = useState(false);
+  const pdfReady = !entitlementLoading && plan === "pro";
 
   const source = draft ?? content;
 
-  const pictureDataUrl = () => toDataUrl(url ?? mypic);
+  // No uploaded picture → null: the HTML export renders its initials avatar
+  // and the PDF skips the photo block — never a placeholder photo of someone.
+  const pictureDataUrl = () => (url ? toDataUrl(url) : Promise.resolve(null));
 
   const downloadBlob = (blob, fileName) => {
     const link = document.createElement("a");
@@ -67,6 +73,15 @@ export const ExportButton = ({ draft }) => {
     }
   };
 
+  const handlePdfClick = () => {
+    if (entitlementLoading) return; // plan not resolved yet — do nothing
+    if (!pdfReady) {
+      setPdfHint(true);
+      return;
+    }
+    handleDownloadPdf();
+  };
+
   const pillClass =
     "inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-sky-500/10 border border-sky-400/30 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 disabled:opacity-40 disabled:cursor-wait transition-colors";
 
@@ -91,7 +106,7 @@ export const ExportButton = ({ draft }) => {
         </button>
         <button
           type="button"
-          onClick={handleDownloadPdf}
+          onClick={handlePdfClick}
           disabled={busy !== null}
           className={pillClass}
         >
@@ -99,13 +114,22 @@ export const ExportButton = ({ draft }) => {
             <>
               <Loader2 className="w-4 h-4 animate-spin" /> Building your PDF…
             </>
-          ) : (
+          ) : pdfReady ? (
             <>
               <FileText className="w-4 h-4" /> Download PDF
+            </>
+          ) : (
+            <>
+              <Lock className="w-4 h-4" /> Download PDF · Pro
             </>
           )}
         </button>
       </div>
+      {pdfHint && !pdfReady && (
+        <p className="text-xs text-amber-400">
+          PDF export is a Pro feature — upgrade on the Upgrade tab below.
+        </p>
+      )}
       {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );

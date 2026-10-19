@@ -1,7 +1,6 @@
 import { useRef } from "react";
 import { motion } from "framer-motion";
 import { Camera, Loader2 } from "lucide-react";
-import mypic from "../assets/original-profile-picture.png";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
@@ -13,10 +12,9 @@ const Hero = () => {
   const { status, profile } = useAuth();
   const { url, uploading, error, upload } = useProfilePicture(profile?.userId);
 
-  // Signed-in: this user's uploaded picture, the bundled one until storage
-  // answers. Visitors: the cartoon avatar — the public showcase stays photo-free.
-  const fallback = status === "unauthenticated" ? visitorAvatar : mypic;
-  const picture = url ?? fallback;
+  // Everyone starts on the cartoon avatar — signed-in or visitor — until
+  // this user uploads their own picture.
+  const picture = url ?? visitorAvatar;
   const fileInputRef = useRef(null);
 
   const handleChange = async (event) => {
@@ -38,7 +36,7 @@ const Hero = () => {
         >
           <img
             src={picture}
-            alt="Merajul"
+            alt={content?.brand || "Profile"}
             className={`w-full h-full rounded-full object-cover border-4 border-sky-400 shadow-lg transition ${uploading ? "opacity-50" : ""}`}
           />
           {/* Mobile: a camera badge pinned to the avatar. Desktop: a full

@@ -1,7 +1,9 @@
 import { useMemo, useState } from "react";
 import { Check, Loader2, RotateCcw, Save } from "lucide-react";
+import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { normalizeContent } from "../content/portfolioShape";
+import { FREE_PROJECT_LIMIT, isAdminProfile, useEntitlement } from "../payments/useEntitlement";
 import { HeroForm } from "./edit/HeroForm";
 import { AboutForm } from "./edit/AboutForm";
 import { SkillsForm } from "./edit/SkillsForm";
@@ -9,6 +11,8 @@ import { ProjectsForm } from "./edit/ProjectsForm";
 import { ContactForm } from "./edit/ContactForm";
 import { ProfilePicSection } from "./edit/ProfilePicSection";
 import { ExportButton } from "./edit/ExportButton";
+import { PaymentsSection } from "./edit/PaymentsSection";
+import { AdminPaymentsSection } from "./edit/AdminPaymentsSection";
 
 const SECTIONS = [
   { key: "hero", label: "Hero", Form: HeroForm },
@@ -17,6 +21,13 @@ const SECTIONS = [
   { key: "projects", label: "Projects", Form: ProjectsForm },
   { key: "contact", label: "Contact", Form: ContactForm },
   { key: "profile", label: "Profile" },
+];
+
+// Extra tabs beyond content editing. Upgrade is for everyone; Approvals
+// (the payment review queue) renders only for the admin account.
+const EXTRA_SECTIONS = [
+  { key: "upgrade", label: "Upgrade" },
+  { key: "approvals", label: "Approvals" },
 ];
 
 const EMPTY_SECTIONS = {
@@ -28,11 +39,13 @@ const EMPTY_SECTIONS = {
 };
 
 // The active tab survives a page refresh via sessionStorage (cleared when the
-// browser tab closes, so a later visit always starts fresh at Hero).
-const sectionKeyFromSession = () => {
+// browser tab closes, so a later visit always starts fresh at Hero). Only
+// keys allowed for THIS viewer are restored — a saved "approvals" falls back
+// to Hero for a non-admin.
+const sectionKeyFromSession = (allowedKeys) => {
   try {
     const saved = sessionStorage.getItem("edit:section");
-    return SECTIONS.some((s) => s.key === saved) ? saved : "hero";
+    return allowedKeys.includes(saved) ? saved : "hero";
   } catch {
     return "hero";
   }
@@ -40,7 +53,17 @@ const sectionKeyFromSession = () => {
 
 const EditPage = () => {
   const { content, saving, save } = usePortfolio();
-  const [activeKey, setActiveKey] = useState(sectionKeyFromSession);
+  const { profile } = useAuth();
+  const { plan } = useEntitlement();
+  const admin = isAdminProfile(profile);
+  const sections = useMemo(
+    () =>
+      admin ? [...SECTIONS, ...EXTRA_SECTIONS] : [...SECTIONS, EXTRA_SECTIONS[0]],
+    [admin]
+  );
+  const [activeKey, setActiveKey] = useState(() =>
+    sectionKeyFromSession(sections.map((s) => s.key))
+  );
   const [draft, setDraft] = useState(content);
   const [saveState, setSaveState] = useState(null); // null | "saved" | error message
 
@@ -54,8 +77,8 @@ const EditPage = () => {
   };
 
   const ActiveForm = useMemo(
-    () => (SECTIONS.find((s) => s.key === activeKey) ?? SECTIONS[0]).Form,
-    [activeKey]
+    () => (sections.find((s) => s.key === activeKey) ?? sections[0]).Form,
+    [activeKey, sections]
   );
 
   if (!draft) return null;
@@ -89,7 +112,7 @@ const EditPage = () => {
         </header>
 
         <div className="flex flex-wrap gap-2">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <button
               key={s.key}
               type="button"
@@ -116,6 +139,22 @@ const EditPage = () => {
           <div className="max-w-sm">
             <ProfilePicSection />
           </div>
+        ) : activeKey === "upgrade" ? (
+          <section className="bg-gray-800 border border-white/10 rounded-2xl shadow-xl p-5 md:p-8">
+            <PaymentsSection />
+          </section>
+        ) : activeKey === "approvals" ? (
+          <section className="bg-gray-800 border border-white/10 rounded-2xl shadow-xl p-5 md:p-8">
+            <AdminPaymentsSection />
+          </section>
+        ) : activeKey === "projects" ? (
+          <section className="bg-gray-800 border border-white/10 rounded-2xl shadow-xl p-5 md:p-8">
+            <ProjectsForm
+              value={draft.projects ?? EMPTY_SECTIONS.projects}
+              onChange={(next) => setDraft({ ...draft, projects: next })}
+              limit={plan === "pro" ? null : FREE_PROJECT_LIMIT}
+            />
+          </section>
         ) : (
           <section className="bg-gray-800 border border-white/10 rounded-2xl shadow-xl p-5 md:p-8">
             <ActiveForm
@@ -126,7 +165,9 @@ const EditPage = () => {
         )}
       </div>
 
-      {/* Sticky save bar — always visible, shows dirty state and result. */}
+      {/* Sticky save bar — content tabs only (nothing to save on Upgrade /
+          Approvals). */}
+      {activeKey !== "upgrade" && activeKey !== "approvals" && (
       <div className="fixed bottom-0 inset-x-0 bg-gray-800/90 backdrop-blur border-t border-white/10 z-40">
         <div className="max-w-3xl mx-auto px-4 md:px-10 py-3 flex items-center gap-3">
           <span className="text-sm text-gray-400 flex-1">
@@ -169,6 +210,7 @@ const EditPage = () => {
           </button>
         </div>
       </div>
+      )}
     </div>
   );
 };

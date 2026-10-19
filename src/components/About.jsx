@@ -1,4 +1,3 @@
-import mypic from "../assets/original-profile-picture.png";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { motion } from "framer-motion";
 import { useAuth } from "../auth/auth-context";
@@ -8,18 +7,18 @@ import { AccentText } from "../content/AccentText";
 
 const About = () => {
   const { content } = usePortfolio();
-  const { status, profile } = useAuth();
+  const { profile } = useAuth();
   const { url } = useProfilePicture(profile?.userId);
 
-  // Signed-in: this user's uploaded picture, the bundled one until storage
-  // answers. Visitors: the cartoon avatar — the public showcase stays photo-free.
-  const picture = url ?? (status === "unauthenticated" ? visitorAvatar : mypic);
+  // Everyone starts on the cartoon avatar — signed-in or visitor — until
+  // this user uploads their own picture.
+  const picture = url ?? visitorAvatar;
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col md:flex-row items-center justify-center p-6 md:p-10 bg-gray-900 gap-8 md:gap-12">
       <motion.img
         src={picture}
-        alt="Merajul"
+        alt={content?.brand || "Profile"}
         className="w-48 h-48 md:w-64 md:h-64 rounded-xl object-cover border-4 border-sky-500 shadow-lg"
         initial={{ opacity: 0, y: 50 }}
         animate={{ opacity: 1, y: 0 }}

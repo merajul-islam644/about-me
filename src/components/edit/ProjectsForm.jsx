@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Sparkles } from "lucide-react";
 import { TextField } from "./fields";
 
 const newProject = () => ({
@@ -15,8 +15,10 @@ const newProject = () => ({
 
 // One section: type a new project's details, Add Project appends it to the
 // list (existing projects are kept untouched) and the section clears.
-export const ProjectsForm = ({ value, onChange }) => {
+// `limit` (number | null) is the free plan's project ceiling — null means Pro.
+export const ProjectsForm = ({ value, onChange, limit }) => {
   const [draft, setDraft] = useState(newProject);
+  const atLimit = typeof limit === "number" && value.length >= limit;
 
   const addProject = () => {
     onChange([...value, draft]);
@@ -51,14 +53,21 @@ export const ProjectsForm = ({ value, onChange }) => {
           />
         </div>
       </div>
-      <button
-        type="button"
-        onClick={addProject}
-        disabled={!draft.title.trim()}
-        className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-sky-500/10 border border-sky-400/30 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-      >
-        <Plus className="w-4 h-4" /> Add Project
-      </button>
+      {atLimit ? (
+        <p className="self-start inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium text-amber-400 border border-amber-400/30 bg-amber-400/10">
+          <Sparkles className="w-4 h-4" />
+          Free plan holds {limit} projects — upgrade on the Upgrade tab for unlimited.
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={addProject}
+          disabled={!draft.title.trim()}
+          className="self-start inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-medium bg-sky-500/10 border border-sky-400/30 text-sky-400 hover:bg-sky-500/20 hover:text-sky-300 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Add Project
+        </button>
+      )}
     </div>
   );
 };

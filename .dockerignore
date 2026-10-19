@@ -1,0 +1,11 @@
+# Keep secrets and local state out of the image build context.
+node_modules
+dist
+npm-cache
+.cert
+.env*
+.git
+.claude
+.agents
+.playwright-mcp
+*.log

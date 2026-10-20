@@ -126,6 +126,23 @@ export function buildCvPdf(content, pictureDataUrl) {
     doc.text(String(cv.title), MARGIN_X, y);
     y += 6;
   }
+  // ---- Personal information — the contact strip under the headline ----
+  const contact = [
+    cv.contact?.location,
+    cv.contact?.phone,
+    cv.contact?.email,
+    cv.contact?.link,
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
+  if (contact) {
+    setStyle(9.5, "normal", BODY);
+    doc.splitTextToSize(contact, CONTENT_W).forEach((line) => {
+      ensureSpace(5);
+      doc.text(line, MARGIN_X, y);
+      y += 5;
+    });
+  }
   y += 1;
   doc.setDrawColor(LINE);
   doc.line(MARGIN_X, y, RIGHT_X, y);

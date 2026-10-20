@@ -5,13 +5,12 @@ import { usePortfolio } from "../../portfolio/portfolio-context";
 import { useProfilePicture } from "../../portfolio/useProfilePicture";
 import { toDataUrl } from "../../portfolio/portfolio-export";
 
-// The one document action on every CV view: build a print-ready A4 PDF of
+// The one document action on the CV views: build a print-ready A4 PDF of
 // the WHOLE CV (all sections, not just the page you're on) and save it.
 // Owner-only: the button renders for signed-in users — visitors browse the
-// public showcase without it. `draftCv` (the editor's unsaved CV draft)
-// overrides the saved content, so Edit CV downloads exactly what its preview
-// shows — clearing `cvs` makes getActiveCv fall back to the `cv` override.
-// The uploaded profile picture is fetched and embedded top-right at download
+// public showcase without it. `draftCv` (an unsaved CV draft) overrides the
+// saved content — without it the PDF is built from the active CV. The
+// uploaded profile picture is fetched and embedded top-right at download
 // time. The PDF module (~350 KB with jsPDF) loads on demand, exactly like
 // the portfolio's export.
 export const DownloadCvButton = ({ draftCv }) => {

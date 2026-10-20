@@ -66,16 +66,55 @@ export const merajPortfolio = {
 // (visitors have no row to save into), so sharing nested objects is fine.
 // The CV block demos the section model so the public /cv view looks like a
 // real document, not an empty shell.
+import { CONTENT_VERSION } from "./portfolioShape";
+
 export const visitorPortfolio = {
   ...merajPortfolio,
+  // v1 content gets its project list dropped on purpose (the old site's
+  // filler rows) — the visitor showcase presents as v2, so the sample
+  // projects below survive normalization.
+  version: CONTENT_VERSION,
   brand: "Jon Doe",
   hero: { ...merajPortfolio.hero, greeting: "Hi, I'm Jon Doe" },
+  // The Projects page needs something to show — three sample works (the
+  // same ones the sample CV lists, so the site agrees with itself) under
+  // the Jon Doe persona. Meraj's own seed above keeps its real list.
+  projects: [
+    {
+      id: "vp-1",
+      title: "Portfolio & CV Builder",
+      desc: "A platform where anyone can build their own portfolio and a profession-tailored CV, then publish both.",
+      github: "https://github.com/johndoe/portfolio-builder",
+      live: "https://johndoe.dev",
+    },
+    {
+      id: "vp-2",
+      title: "Task Manager",
+      desc: "A drag-and-drop task board with deadlines, labels and offline persistence.",
+      github: "https://github.com/johndoe/task-manager",
+      live: "https://task-manager.johndoe.dev",
+    },
+    {
+      id: "vp-3",
+      title: "Weather Dashboard",
+      desc: "Searchable 5-day forecast with geolocation — caches the last result for offline viewing.",
+      github: "https://github.com/johndoe/weather-dashboard",
+      live: "https://weather.johndoe.dev",
+    },
+  ],
   cv: {
     // Every CV page carries sample data — the public showcase is browsable
     // without login, so no CV page may render empty for visitors. Written as
-    // a complete, recruiter-standard document: summary → experience →
-    // education on Intro; profile + strengths on About; skills, tools and
-    // languages on Skills; three shipped projects; full contact details.
+    // a complete, recruiter-standard document: personal information in the
+    // header strip, summary → experience → education on Intro; profile +
+    // strengths on About; skills, tools and languages on Skills; three
+    // shipped projects; a references line.
+    contact: {
+      location: "Dhaka, Bangladesh",
+      phone: "+880 1712 345 678",
+      email: "jon.doe@example.com",
+      link: "linkedin.com/in/jondoe",
+    },
     sections: [
       // ---- Intro: summary, experience, education ----
       {
@@ -209,20 +248,8 @@ export const visitorPortfolio = {
           },
         ],
       },
-      // ---- Contact: full details + references line ----
-      {
-        type: "list",
-        page: "contact",
-        title: "Contact",
-        items: [
-          { text: "Email — jon.doe@example.com" },
-          { text: "Phone — +880 1712 345 678" },
-          { text: "Location — Dhaka, Bangladesh" },
-          { text: "Portfolio — johndoe.dev" },
-          { text: "LinkedIn — linkedin.com/in/jondoe" },
-          { text: "GitHub — github.com/johndoe" },
-        ],
-      },
+      // ---- Contact page: the references line (personal information now
+      // lives in the header strip) ----
       {
         type: "text",
         page: "contact",

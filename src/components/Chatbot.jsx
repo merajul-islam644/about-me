@@ -118,11 +118,7 @@ const CHAT_PAGES = [
   { path: "/skills", name: "Skills", keys: ["skills"] },
   { path: "/projects", name: "Projects", keys: ["projects"] },
   { path: "/contact", name: "Contact", keys: ["contact"] },
-  { path: "/cv", name: "Intro (CV)", keys: ["cv intro", "cv home"] },
-  { path: "/cv/about", name: "About (CV)", keys: ["cv about"] },
-  { path: "/cv/skills", name: "Skills (CV)", keys: ["cv skills"] },
-  { path: "/cv/projects", name: "Projects (CV)", keys: ["cv projects"] },
-  { path: "/cv/contact", name: "Contact (CV)", keys: ["cv contact"] },
+  { path: "/cv", name: "CV", keys: ["cv", "cv intro", "cv home"] },
 ];
 
 const loadStored = (key, fallback) => {
@@ -690,7 +686,7 @@ const Chatbot = () => {
 
   // The editors pin a sticky save bar across the bottom — the launcher lifts
   // above it there instead of covering the Save button.
-  const raised = pathname === "/edit" || pathname === "/cv/edit";
+  const raised = pathname === "/edit";
 
   // The robot's hands, offered to the model as tools it may call. A tool
   // exists only when it can: the CV needs a signed-in owner (the same lazy

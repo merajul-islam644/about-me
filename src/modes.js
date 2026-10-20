@@ -30,21 +30,15 @@ export const getMode = (pathname, search = "") => {
   return MODES.find((mode) => mode.match(pathname)) ?? MODES[0];
 };
 
-// The navbar is fully mode-native: in CV mode every menu opens the CV
-// counterpart of that page (/cv/…), in portfolio mode the portfolio pages.
-// Each menu ends with that mode's owner destinations — its shelf (every
-// saved portfolio, or every saved CV, in one list) and its editor.
-// Signed-out visitors clicking any of them are sent to login first.
+// The navbar is fully mode-native. Portfolio mode ends with the CV shelf —
+// the one owner destination in the bar (the portfolio shelf and portfolio
+// editor live on at their URLs, /library and /edit, but no longer sit in
+// the menu). CV mode is the owner's workspace: its menu carries just My
+// CV. Signed-out visitors clicking it are sent to login first.
 export const getMenuForMode = (modeKey) =>
   modeKey === "cv"
     ? [
-        { name: "Intro", to: "/cv" },
-        { name: "About", to: "/cv/about" },
-        { name: "Skills", to: "/cv/skills" },
-        { name: "Projects", to: "/cv/projects" },
-        { name: "Contact", to: "/cv/contact" },
         { name: "My CV", to: "/cv/library" },
-        { name: "Edit CV", to: "/cv/edit" },
       ]
     : [
         { name: "Intro", to: "/" },
@@ -52,6 +46,5 @@ export const getMenuForMode = (modeKey) =>
         { name: "Skills", to: "/skills" },
         { name: "Projects", to: "/projects" },
         { name: "Contact", to: "/contact" },
-        { name: "My portfolio", to: "/library" },
-        { name: "Edit portfolio", to: "/edit" },
+        { name: "My CV", to: "/cv/library" },
       ];

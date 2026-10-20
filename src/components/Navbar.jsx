@@ -51,7 +51,7 @@ const Navbar = () => {
   const links = getMenuForMode(getMode(location.pathname, location.search).key);
 
   // On the login page the visitor is "heading to" their returnTo — keep the
-  // menu they clicked highlighted (Edit CV vs Edit portfolio stays visibly
+  // menu they clicked highlighted (My CV vs Edit portfolio stays visibly
   // selected, so the redirect reads as a continuation, not a dead end).
   const highlightPath =
     location.pathname === "/login"

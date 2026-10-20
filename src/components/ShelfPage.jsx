@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   Eye,
   FilePlus2,
   FolderPlus,
@@ -16,13 +17,35 @@ import {
   getActiveCv,
   getActivePortfolio,
   normalizeContent,
+  seedSections,
 } from "../content/portfolioShape";
 import { ModeTabs } from "./ModeTabs";
+import { DownloadCvButton } from "./cv/DownloadCvButton";
+import { TemplateGallery } from "./cv/TemplateGallery";
 
 const newId = (prefix) =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${prefix}-${Math.random().toString(16).slice(2)}`;
+
+// The "New …" pill — used in the shelf header and in the empty state.
+const NewButton = ({ busy, kind, label, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    disabled={busy}
+    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500 px-4 py-1.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
+  >
+    {busy ? (
+      <Loader2 className="h-4 w-4 animate-spin" />
+    ) : kind === "cv" ? (
+      <FilePlus2 className="h-4 w-4" />
+    ) : (
+      <FolderPlus className="h-4 w-4" />
+    )}
+    {label}
+  </button>
+);
 
 // Per-kind wiring for the two shelves — what the list is, how a fresh item
 // is seeded, and where View/Edit take you. Everything else (cards, opening,
@@ -32,6 +55,7 @@ const SHELF_KINDS = {
     title: "My portfolio",
     intro:
       "Every showcase you have built, saved in one place. Open one to view or edit it — the one marked Active is what visitors see.",
+    emptyText: "Nothing saved yet — build your first portfolio.",
     newLabel: "New portfolio",
     lastGuard: "Your last portfolio cannot be deleted",
     viewTo: "/",
@@ -65,11 +89,16 @@ const SHELF_KINDS = {
   cv: {
     title: "My CV",
     intro:
-      "Every CV you have built, saved in one place. Open one to view or edit it — the one marked Active is what the CV tab shows.",
+      "Every CV you have built, saved in one place. View opens the whole CV — every section on one page, editable right there with its pencil icons.",
+    emptyText: "No CV here yet — build your first one and it shows up as a card.",
     newLabel: "New CV",
-    lastGuard: "Your last CV cannot be deleted",
+    // CVs may be emptied out entirely — the shelf then shows its empty
+    // state. Portfolios always keep one (the public pages need something
+    // to show).
+    canDeleteLast: true,
     viewTo: "/cv",
-    editTo: "/cv/edit",
+    // No separate editor anymore — /cv itself is editable, so the cards
+    // carry no Edit button.
     subtitle: (item) => item.title,
     stats: (item) => {
       const sectionCount = item.sections?.length ?? 0;
@@ -82,19 +111,21 @@ const SHELF_KINDS = {
     list: (content) => content.cvs ?? [],
     switchPatch: (id) => ({ activeCvId: id }),
     // A fresh CV is seeded from the active portfolio's hero — same personal
-    // defaults as a first CV.
-    create: (content) => {
+    // defaults as a first CV. A picked template seeds its sections through
+    // the shared seedSections (fresh ids, starter items included); blank
+    // starts with none.
+    create: (content, preset = null) => {
       const list = content.cvs ?? [];
       const fresh = {
         id: newId("cv"),
         name: `CV ${list.length + 1}`,
         ...defaultCvFor({ hero: content.hero }),
-        sections: [],
+        sections: preset ? seedSections(preset) : [],
       };
       return {
         patch: { cvs: [...list, fresh], activeCvId: fresh.id },
         fresh,
-        to: "/cv/edit",
+        to: "/cv",
       };
     },
   },
@@ -102,14 +133,18 @@ const SHELF_KINDS = {
 
 // One shelf page: every saved item of one kind, in a list. Opening an item
 // (View or Edit) makes it the active one — the showcase the public pages
-// show — then takes you to the document or its editor. Deleting asks first,
-// and the last item cannot go.
+// show — then takes you to the document or its editor. Deleting asks first;
+// the last item cannot go unless the kind opts in (CVs may be emptied to
+// nothing, leaving the empty state).
 export const ShelfPage = ({ kind }) => {
   const spec = SHELF_KINDS[kind] ?? SHELF_KINDS.portfolio;
   const { content, save } = usePortfolio();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // The CV shelf's New button opens the template gallery first; the
+  // portfolio shelf creates straight away.
+  const [templateOpen, setTemplateOpen] = useState(false);
 
   if (!content) return null;
 
@@ -139,13 +174,14 @@ export const ShelfPage = ({ kind }) => {
     }
   };
 
-  const createItem = async () => {
+  const createItem = async (preset = null) => {
     if (busy) return;
     setError(null);
     setBusy(true);
     try {
-      const { patch, to } = spec.create(content);
+      const { patch, to } = spec.create(content, preset);
       await persist(patch);
+      setTemplateOpen(false);
       navigate(to);
     } catch (createError) {
       setError(createError?.message || "Creating failed — please try again.");
@@ -153,6 +189,8 @@ export const ShelfPage = ({ kind }) => {
       setBusy(false);
     }
   };
+
+  const handleNew = () => (kind === "cv" ? setTemplateOpen(true) : createItem());
 
   // Rename asks for the new name and saves it straight into the list —
   // cancelling the prompt changes nothing.
@@ -177,7 +215,7 @@ export const ShelfPage = ({ kind }) => {
   };
 
   const deleteItem = async (item) => {
-    if (busy || items.length <= 1) return; // the last item cannot go
+    if (busy || (items.length <= 1 && !spec.canDeleteLast)) return; // the last item cannot go
     if (
       !window.confirm(
         `Delete “${item.name ?? "this"}”? This cannot be undone.`
@@ -210,7 +248,20 @@ export const ShelfPage = ({ kind }) => {
     "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-40";
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-gray-900 flex flex-col">
+    <div className="relative min-h-[calc(100vh-64px)] bg-gray-900 flex flex-col">
+      {/* The way back — CV mode's menu is just this shelf, so the page
+          carries its own back arrow (one step through history). */}
+      {kind === "cv" && (
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          title="Go back"
+          aria-label="Go back"
+          className="absolute left-4 top-4 md:left-10 md:top-10 z-10 rounded-full p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      )}
       <div className="flex justify-center pt-6 px-6">
         <ModeTabs />
       </div>
@@ -233,21 +284,17 @@ export const ShelfPage = ({ kind }) => {
 
         <section className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-bold text-white">{spec.title}</h3>
-          <button
-            type="button"
-            onClick={createItem}
-            disabled={busy}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500 px-4 py-1.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : kind === "cv" ? (
-              <FilePlus2 className="h-4 w-4" />
-            ) : (
-              <FolderPlus className="h-4 w-4" />
-            )}
-            {spec.newLabel}
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* The CV shelf keeps the PDF export (the retired Edit CV page
+                was its old home): Download builds the active CV. */}
+            {kind === "cv" && <DownloadCvButton />}
+            <NewButton
+              busy={busy}
+              kind={kind}
+              label={spec.newLabel}
+              onClick={handleNew}
+            />
+          </div>
         </section>
 
         <div className="grid gap-4 sm:grid-cols-2 -mt-3">
@@ -282,13 +329,15 @@ export const ShelfPage = ({ kind }) => {
                   >
                     <Eye className="h-3.5 w-3.5" /> View
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => openItem(item.id, spec.editTo)}
-                    className={cardActionClass}
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </button>
+                  {spec.editTo && (
+                    <button
+                      type="button"
+                      onClick={() => openItem(item.id, spec.editTo)}
+                      className={cardActionClass}
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => renameItem(item)}
@@ -299,9 +348,11 @@ export const ShelfPage = ({ kind }) => {
                   <button
                     type="button"
                     onClick={() => deleteItem(item)}
-                    disabled={items.length <= 1 || busy}
+                    disabled={
+                      (items.length <= 1 && !spec.canDeleteLast) || busy
+                    }
                     title={
-                      items.length <= 1
+                      items.length <= 1 && !spec.canDeleteLast
                         ? spec.lastGuard
                         : `Delete “${item.name ?? "this"}”`
                     }
@@ -314,7 +365,31 @@ export const ShelfPage = ({ kind }) => {
             );
           })}
         </div>
+
+        {/* Empty shelf — nothing saved (or every CV deleted). */}
+        {items.length === 0 && (
+          <div className="-mt-3 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/15 p-10 text-center">
+            <p className="text-sm text-gray-400">{spec.emptyText}</p>
+            <NewButton
+              busy={busy}
+              kind={kind}
+              label={spec.newLabel}
+              onClick={handleNew}
+            />
+          </div>
+        )}
       </div>
+
+      {/* New CV opens the shared template gallery first — a profession
+          preset seeds the sections that profession needs (all editable
+          afterwards); blank starts truly blank. */}
+      <TemplateGallery
+        open={templateOpen}
+        busy={busy}
+        error={error}
+        onPick={createItem}
+        onClose={() => setTemplateOpen(false)}
+      />
     </div>
   );
 };

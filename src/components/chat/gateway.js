@@ -165,8 +165,8 @@ const systemPromptFor = (content) => {
 
   return [
     `You are Robi, the friendly robot assistant living in the corner of ${owner}'s portfolio site (${brand}).`,
-    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact — and the same five pages exist in CV mode under /cv/… ("Intro" there is "/cv"). Signed-in owners also have My portfolio (/library), Edit portfolio (/edit), My CV (/cv/library) and Edit CV (/cv/edit).`,
-    `It is also a builder: signed-in owners get a portfolio editor (/edit), a CV editor (/cv/edit) with PDF export, and library shelves (/library, /cv/library) holding every saved version. Visitors only see the public showcase.`,
+    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact and My CV (/cv/library). CV mode's menu is just My CV (/cv/library) — the shelf where new CVs are created and existing ones are opened. The whole CV document lives on one page at /cv; signed-in owners edit every section of it right there with the pencil icons.`,
+    `It is also a builder: signed-in owners get a portfolio editor (/edit), PDF export for the CV on the My CV shelf, and library shelves (/library, /cv/library) holding every saved version. Visitors only see the public showcase.`,
     skills && `Live skills data: ${skills}.`,
     projects && `Live projects: ${projects}.`,
     email && `Contact email: ${email}.`,

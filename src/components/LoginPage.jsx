@@ -5,6 +5,7 @@ import { ArrowRight, Lock, Loader2, Palette } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
 import { isLoginConfigured } from "../lib/blocks/config";
 import { startSignup } from "../lib/blocks/auth";
+import { ModeTabs } from "./ModeTabs";
 
 const highlights = [
   {
@@ -45,7 +46,14 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] relative overflow-hidden bg-gray-800 flex items-center justify-center p-6">
+    <div className="min-h-[calc(100vh-64px)] relative overflow-hidden bg-gray-800 flex flex-col">
+      {/* The mode strip — a visitor bounced here from "My CV" is wearing the
+          CV mode and needs the way back to the portfolio showcase. */}
+      <div className="relative z-10 flex justify-center pt-6 px-6">
+        <ModeTabs />
+      </div>
+
+      <div className="relative flex flex-1 items-center justify-center p-6">
       {/* Floating ambient orbs */}
       <motion.div
         aria-hidden="true"
@@ -178,6 +186,7 @@ const LoginPage = () => {
             </button>
           </p>
         </motion.div>
+      </div>
       </div>
     </div>
   );

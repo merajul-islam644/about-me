@@ -1,4 +1,13 @@
 @import "tailwindcss";
+
+/* The chat list scrolls, but its scrollbar stays invisible — the panel is
+   tight, and wheel, trackpad and touch still scroll normally. */
+.scrollbar-hidden {
+  scrollbar-width: none;
+}
+.scrollbar-hidden::-webkit-scrollbar {
+  display: none;
+}
 /* :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

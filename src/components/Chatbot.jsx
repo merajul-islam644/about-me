@@ -1,144 +1,776 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Send, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  ClipboardCopy,
+  Compass,
+  Copy,
+  FileDown,
+  History,
+  Library,
+  Loader2,
+  MoreVertical,
+  Pencil,
+  Plus,
+  Puzzle,
+  Send,
+  Settings,
+  Share2,
+  Sparkles,
+  ThumbsUp,
+  Trash2,
+  X,
+} from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
+import { useAuth } from "../auth/auth-context";
+import { useProfilePicture } from "../portfolio/useProfilePicture";
+import { toDataUrl } from "../portfolio/portfolio-export";
+import {
+  PROVIDERS,
+  SKILL_REGISTRY,
+  callGateway,
+  providerMeta,
+  toolProgress,
+} from "./chat/gateway";
 
 // The robot face from the product shot, drawn as SVG: dark navy head, thick
 // white outline, teal eyes and smile. Scales to any size — the launcher
 // button and the chat header share the one drawing.
 const RobotFace = ({ size = 44 }) => (
-  <svg width={size} height={size} viewBox="0 0 64 64" fill="none" aria-hidden="true">
-    <line x1="32" y1="9" x2="32" y2="15" stroke="#f9fafb" strokeWidth="3" strokeLinecap="round" />
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 64 64"
+    fill="none"
+    aria-hidden="true"
+  >
+    <line
+      x1="32"
+      y1="9"
+      x2="32"
+      y2="15"
+      stroke="#f9fafb"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
     <circle cx="32" cy="6.5" r="4" fill="#f9fafb" />
     <rect x="4" y="29" width="7" height="13" rx="3.5" fill="#f9fafb" />
     <rect x="53" y="29" width="7" height="13" rx="3.5" fill="#f9fafb" />
-    <rect x="9" y="15" width="46" height="41" rx="13" fill="#0f172a" stroke="#f9fafb" strokeWidth="4.5" />
+    <rect
+      x="9"
+      y="15"
+      width="46"
+      height="41"
+      rx="13"
+      fill="#0f172a"
+      stroke="#f9fafb"
+      strokeWidth="4.5"
+    />
     <circle cx="25.5" cy="32.5" r="3.4" fill="#2dd4bf" />
     <circle cx="38.5" cy="32.5" r="3.4" fill="#2dd4bf" />
-    <path d="M25.5 39.5 Q32 44.5 38.5 39.5" stroke="#2dd4bf" strokeWidth="2.6" strokeLinecap="round" fill="none" />
+    <path
+      d="M25.5 39.5 Q32 44.5 38.5 39.5"
+      stroke="#2dd4bf"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      fill="none"
+    />
   </svg>
 );
 
-// Rich text in stored content uses **accent** markers; chat bubbles are plain
-// text, so strip them.
+// Model output may carry markdown accents; chat bubbles are plain text, so
+// strip the emphasis markers.
 const plain = (text) => String(text ?? "").replace(/\*\*/g, "");
 
-// The reply engine: keyword intents answered from the LIVE portfolio content
-// — whoever is viewing (visitor or owner), the bot speaks their data. Purely
-// local, so it costs nothing and works without any external service.
-const answerFor = (raw, content) => {
-  const q = raw.toLowerCase();
-  // `s?` makes plurals match ("skills" hits the "skill" intent) while the
-  // leading \b still keeps "hi" out of words like "this".
-  const has = (...words) =>
-    words.some((word) => new RegExp(`\\b${word}s?\\b`).test(q));
-
-  const brand = content?.brand || "this portfolio";
-  const heroSkills = (content?.hero?.skills ?? [])
-    .map((skill) => skill.name)
-    .filter(Boolean);
-  const toolkit = [...new Set([...heroSkills, ...(content?.skills ?? [])])];
-
-  if (has("hi", "hello", "hey", "salam")) {
-    return {
-      text: `Hey! I'm Robi, the little robot of ${brand}'s site. Ask me about skills, projects, how to get in touch — or tap a chip below.`,
-    };
-  }
-
-  if (has("cv", "resume")) {
-    return {
-      text: "The full CV lives on the CV tab — every section, recruiter-ready. You can open it right here:",
-      links: [{ label: "Open the CV tab", to: "/cv" }],
-    };
-  }
-
-  if (has("contact", "email", "hire", "reach", "talk", "message")) {
-    const contact = content?.contact;
-    return {
-      text: plain(contact?.intro) || "Reach out any time — the contact page has every channel.",
-      links: contact?.mail
-        ? [
-            { label: contact.mail.label, href: contact.mail.href, external: true },
-            { label: "Go to the contact page", to: "/contact" },
-          ]
-        : [{ label: "Go to the contact page", to: "/contact" }],
-    };
-  }
-
-  if (has("project", "work", "built", "portfolio")) {
-    const projects = content?.projects ?? [];
-    if (projects.length === 0) {
-      return {
-        text: "No projects are pinned right now — but there is plenty to see. Ask me about skills meanwhile!",
-      };
-    }
-    const titles = projects
-      .slice(0, 3)
-      .map((project) => `“${project.title}”`)
-      .join(", ");
-    return {
-      text: `${brand} has shipped ${projects.length === 1 ? "a project" : `${projects.length} projects`} — ${titles}. Each one has its own card on the projects page:`,
-      links: [{ label: "See all projects", to: "/projects" }],
-    };
-  }
-
-  if (has("skill", "tech", "stack", "tools", "know")) {
-    return {
-      text: toolkit.length
-        ? `The toolkit: ${toolkit.slice(0, 10).join(", ")}. The skills page arranges the whole picture:`
-        : "Skills are still being written — check back soon!",
-      links: [{ label: "Open the skills page", to: "/skills" }],
-    };
-  }
-
-  if (has("about", "who", "introduce", "yourself")) {
-    const first = content?.about?.paragraphs?.[0]?.text;
-    return {
-      text: first
-        ? plain(first)
-        : `${brand} — a developer who enjoys building clean, modern web apps.`,
-      links: [{ label: "Read the full story", to: "/about" }],
-    };
-  }
-
-  if (has("help", "where", "navigate", "menu", "page")) {
-    return {
-      text: "Happy to guide you! The site has an intro, About, Skills, Projects and Contact — plus a full CV tab. What would you like to see?",
-      links: [
-        { label: "About", to: "/about" },
-        { label: "Projects", to: "/projects" },
-        { label: "CV", to: "/cv" },
-      ],
-    };
-  }
-
-  return {
-    text: "Hmm, that one is beyond my little robot brain 🤖 I'm best at skills, projects, the CV and contact details — try one of the chips below!",
-  };
+// Chat sessions, preferences and the gateway config are a per-viewer
+// convenience on this device only — localStorage is right for that, and
+// every touch is guarded because storage can be blocked or cleared at any
+// time.
+const STORAGE = {
+  sessions: "robi.chat.sessions",
+  settings: "robi.chat.settings",
+  gateway: "robi.chat.gateway",
+  skills: "robi.chat.skills",
 };
+const MAX_SESSIONS = 20;
+const MAX_MESSAGES = 100;
+
+// Every skill Robi can be given, straight from the gateway's registry, and
+// the icon each card wears in the Skills panel.
+const ALL_SKILL_NAMES = SKILL_REGISTRY.map((skill) => skill.name);
+const SKILL_ICONS = {
+  download_cv: FileDown,
+  copy_email: ClipboardCopy,
+  jump_to_page: Compass,
+  count_library: Library,
+  share_page_link: Share2,
+};
+
+// The pages Page Jumper may open — the public showcase routes from App.jsx,
+// named exactly as the navbar labels them (src/modes.js), so the bot's words
+// match the menus the visitor actually sees. `keys` are the loose names the
+// model might send instead of a path.
+const CHAT_PAGES = [
+  { path: "/", name: "Intro", keys: ["intro", "home"] },
+  { path: "/about", name: "About", keys: ["about"] },
+  { path: "/skills", name: "Skills", keys: ["skills"] },
+  { path: "/projects", name: "Projects", keys: ["projects"] },
+  { path: "/contact", name: "Contact", keys: ["contact"] },
+  { path: "/cv", name: "Intro (CV)", keys: ["cv intro", "cv home"] },
+  { path: "/cv/about", name: "About (CV)", keys: ["cv about"] },
+  { path: "/cv/skills", name: "Skills (CV)", keys: ["cv skills"] },
+  { path: "/cv/projects", name: "Projects (CV)", keys: ["cv projects"] },
+  { path: "/cv/contact", name: "Contact (CV)", keys: ["cv contact"] },
+];
+
+const loadStored = (key, fallback) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const saveStored = (key, value) => {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    /* private mode, quota, cleared site data — the chat works without it */
+  }
+};
+
+const whenLabel = (at) => {
+  const minutes = Math.round((Date.now() - at) / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h ago`;
+  return new Date(at).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const sessionTitle = (session) =>
+  session.messages.find((message) => message.from === "user")?.text ||
+  "Quick chat";
+
+// Small labeled switch used by the settings view.
+const Toggle = ({ label, hint, on, onChange }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={on}
+    onClick={() => onChange(!on)}
+    className="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-colors hover:bg-white/5"
+  >
+    <span className="min-w-0">
+      <span className="block text-sm font-medium text-gray-200">{label}</span>
+      <span className="block text-xs text-gray-500">{hint}</span>
+    </span>
+    <span
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+        on ? "bg-teal-500" : "bg-gray-600"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+          on ? "translate-x-4" : ""
+        }`}
+      />
+    </span>
+  </button>
+);
+
+// Past conversations, newest first — tapping one brings it back as the
+// current chat.
+const HistoryView = ({ sessions, onRestore, onClear, onBack }) => (
+  <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="flex items-center justify-between border-b border-white/10 px-3 py-2">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to chat
+      </button>
+      {sessions.length > 0 && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-red-400 transition-colors hover:bg-red-500/10"
+        >
+          <Trash2 className="h-3.5 w-3.5" /> Clear all
+        </button>
+      )}
+    </div>
+    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-3">
+      {sessions.length === 0 && (
+        <p className="px-1 py-6 text-center text-sm text-gray-500">
+          No past sessions yet — chat a little, then press{" "}
+          <span className="text-gray-300">+</span> and the conversation will be
+          kept here.
+        </p>
+      )}
+      {sessions.map((session) => (
+        <button
+          key={session.id}
+          type="button"
+          onClick={() => onRestore(session)}
+          className="w-full cursor-pointer rounded-xl border border-white/5 bg-gray-800 px-3.5 py-2.5 text-left transition-colors hover:border-teal-400/40"
+        >
+          <p className="truncate text-sm font-medium text-gray-200">
+            {sessionTitle(session)}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {whenLabel(session.at)} ·{" "}
+            {
+              session.messages.filter((message) => message.from === "user")
+                .length
+            }{" "}
+            messages
+          </p>
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// One labelled field of the gateway form.
+const GatewayField = ({ label, hint, children }) => (
+  <label className="block">
+    <span className="mb-1 block text-xs font-semibold text-gray-300">
+      {label}
+    </span>
+    {children}
+    {hint && <span className="mt-1 block text-xs text-gray-500">{hint}</span>}
+  </label>
+);
+
+const fieldClass =
+  "w-full rounded-xl border border-white/10 bg-gray-900/70 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-teal-400 focus:outline-none";
+
+// The AI Gateway form: point Robi at any Anthropic- or OpenAI-compatible
+// gateway and he answers through that model instead of his built-in brain.
+// The draft lives here (Save/Test work on it); the saved copy lives in the
+// chatbot above and persists per device.
+const GatewaySection = ({ saved, onSave }) => {
+  const [draft, setDraft] = useState(
+    saved
+      ? { ...saved }
+      : { provider: "anthropic", url: "", model: "", key: "" },
+  );
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState(null); // { ok, text }
+
+  const empty = { provider: "anthropic", url: "", model: "", key: "" };
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved || empty);
+  const ready = draft.url.trim() !== "" && draft.key.trim() !== "";
+  const set = (patch) => setDraft((current) => ({ ...current, ...patch }));
+
+  const handleSave = () => {
+    onSave({ ...draft, url: draft.url.trim(), key: draft.key.trim() });
+    setResult({
+      ok: true,
+      text: "Saved — Robi now answers through the gateway.",
+    });
+  };
+
+  const handleClear = () => {
+    onSave(null);
+    setDraft({ ...empty });
+    setResult(null);
+  };
+
+  const handleTest = async () => {
+    if (testing || !ready) return;
+    setTesting(true);
+    setResult(null);
+    try {
+      const { text: reply } = await callGateway(
+        { ...draft, url: draft.url.trim(), key: draft.key.trim() },
+        [{ from: "user", text: "Say OK." }],
+        {},
+      );
+      setResult({
+        ok: true,
+        text: reply
+          ? `Connected — the model replied: “${reply.slice(0, 60)}”`
+          : "Connected.",
+      });
+    } catch (error) {
+      setResult({
+        ok: false,
+        text:
+          error?.message || "Connection failed — check the URL, key and CORS.",
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  return (
+    <section className="rounded-xl border border-white/10 bg-gray-900/40 p-3">
+      <h3 className="flex items-center gap-2 text-sm font-bold text-gray-100">
+        <Sparkles className="h-4 w-4 text-teal-400" /> AI Gateway
+      </h3>
+      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+        Gateway URL, model and token. When set, Robi answers through the model;
+        otherwise he has nothing to think with. Everything stays on this device
+        — never sent anywhere but the gateway itself.
+      </p>
+
+      {saved && (
+        <p className="mt-3 rounded-lg border border-teal-400/30 bg-teal-500/10 px-3 py-2 text-xs font-medium text-teal-300">
+          Override active — {providerMeta(saved.provider).label} →{" "}
+          {saved.model || providerMeta(saved.provider).defaultModel}
+        </p>
+      )}
+
+      <div className="mt-3 flex flex-col gap-3">
+        <GatewayField
+          label="Provider"
+          hint="Which API the gateway speaks. Switches the wire format Robi uses."
+        >
+          <select
+            value={draft.provider}
+            onChange={(event) => set({ provider: event.target.value })}
+            className={fieldClass}
+          >
+            {PROVIDERS.map((provider) => (
+              <option key={provider.value} value={provider.value}>
+                {provider.label}
+              </option>
+            ))}
+          </select>
+        </GatewayField>
+        <GatewayField
+          label="Gateway URL"
+          hint="Base URL of the gateway (any /v1/messages or /v1/chat/completions endpoint works)."
+        >
+          <input
+            type="url"
+            value={draft.url}
+            onChange={(event) => set({ url: event.target.value })}
+            placeholder="https://aigateway.example.com"
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </GatewayField>
+        <GatewayField
+          label="Model"
+          hint="Model id this provider expects. Leave blank for the provider default."
+        >
+          <input
+            type="text"
+            value={draft.model}
+            onChange={(event) => set({ model: event.target.value })}
+            placeholder={providerMeta(draft.provider).defaultModel}
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </GatewayField>
+        <GatewayField
+          label="API Key"
+          hint="API key / bearer for the selected provider. Stored only on this device."
+        >
+          <input
+            type="password"
+            value={draft.key}
+            onChange={(event) => set({ key: event.target.value })}
+            placeholder="••••••••••••••••"
+            autoComplete="off"
+            className={fieldClass}
+          />
+        </GatewayField>
+      </div>
+
+      {result && (
+        <p
+          role="status"
+          className={`mt-3 rounded-lg px-3 py-2 text-xs ${
+            result.ok
+              ? "border border-teal-400/30 bg-teal-500/10 text-teal-300"
+              : "border border-red-400/30 bg-red-500/10 text-red-300"
+          }`}
+        >
+          {result.text}
+        </p>
+      )}
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={handleTest}
+          disabled={!ready || testing}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-gray-200 transition-colors hover:border-teal-400/50 hover:text-teal-300 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {testing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Sparkles className="h-3.5 w-3.5" />
+          )}
+          {testing ? "Testing…" : "Test connection"}
+        </button>
+        <span className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={!saved && !dirty}
+            className="cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-colors hover:border-red-400/50 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Clear overrides
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!ready || !dirty}
+            className="cursor-pointer rounded-full bg-teal-500 px-3.5 py-1.5 text-xs font-bold text-gray-900 shadow transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Save
+          </button>
+        </span>
+      </div>
+    </section>
+  );
+};
+
+// Real preferences: how the bot behaves, what it keeps on this device, and
+// which AI gateway it thinks with.
+const SettingsView = ({
+  settings,
+  onSettingsChange,
+  gateway,
+  onGatewayChange,
+  onBack,
+}) => (
+  <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="border-b border-white/10 px-3 py-2">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to chat
+      </button>
+    </div>
+    <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-3">
+      <section>
+        <h3 className="px-1 text-sm font-bold text-gray-100">Preferences</h3>
+        <div className="mt-1 flex flex-col gap-1">
+          <Toggle
+            label="Typing delay"
+            hint="Show the thinking dots before each reply"
+            on={settings.typingDelay}
+            onChange={(typingDelay) =>
+              onSettingsChange({ ...settings, typingDelay })
+            }
+          />
+          <Toggle
+            label="Save history"
+            hint="Keep past sessions on this device only"
+            on={settings.saveHistory}
+            onChange={(saveHistory) =>
+              onSettingsChange({ ...settings, saveHistory })
+            }
+          />
+        </div>
+      </section>
+      <GatewaySection saved={gateway} onSave={onGatewayChange} />
+    </div>
+  </div>
+);
+
+// The skills store: one card per capability Robi can be given. Installing
+// hands the skill's tool to the model; uninstalling takes it away, and the
+// choice survives reloads on this device. A skill that can't run right now
+// (the CV needs a signed-in owner, the email needs an address) says why.
+const SkillsView = ({ installed, authed, email, onToggle, onBack }) => (
+  <div className="flex flex-1 flex-col overflow-hidden">
+    <div className="border-b border-white/10 px-3 py-2">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-semibold text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" /> Back to chat
+      </button>
+    </div>
+    <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-3">
+      <p className="px-1 text-xs leading-relaxed text-gray-500">
+        The skills Robi can use in conversation. Uninstall one and the model
+        can no longer call it — install it back anytime.
+      </p>
+      {SKILL_REGISTRY.map((skill) => {
+        const isInstalled = installed.includes(skill.name);
+        const Icon = SKILL_ICONS[skill.name];
+        const blocked =
+          (skill.name === "download_cv" || skill.name === "count_library") &&
+          !authed
+            ? "Needs a signed-in owner — it works on your account only."
+            : skill.name === "copy_email" && !email
+              ? "No contact email configured yet."
+              : null;
+        return (
+          <div
+            key={skill.name}
+            className="rounded-xl border border-white/10 bg-gray-800 p-3.5"
+          >
+            <div className="flex items-start gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-teal-500/15 text-teal-300">
+                <Icon className="h-4 w-4" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-gray-100">
+                    {skill.title}
+                  </p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      isInstalled
+                        ? "bg-teal-500/15 text-teal-300"
+                        : "bg-white/5 text-gray-500"
+                    }`}
+                  >
+                    {isInstalled ? "Installed" : "Not installed"}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs leading-relaxed text-gray-400">
+                  {skill.summary}
+                </p>
+                {isInstalled && blocked && (
+                  <p className="mt-1.5 text-[11px] font-medium text-amber-400">
+                    {blocked}
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => onToggle(skill.name)}
+                className={
+                  isInstalled
+                    ? "shrink-0 cursor-pointer rounded-full border border-white/15 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-colors hover:border-red-400/50 hover:text-red-300"
+                    : "shrink-0 cursor-pointer rounded-full bg-teal-500 px-3 py-1.5 text-xs font-bold text-gray-900 shadow transition-colors hover:bg-teal-400"
+                }
+              >
+                {isInstalled ? "Uninstall" : "Install"}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
 
 // The first thing the bot says when a chat is opened.
 const greetingFor = (content) => ({
   from: "bot",
-  text: `Hi there! 👋 I'm Robi — ask me anything about ${content?.brand || "this portfolio"}: skills, projects, the CV, or how to get in touch.`,
+  text: `Hi there! 👋 I'm Robi — ${content?.brand || "this portfolio"}'s site robot. Ask me anything about the site, the work, the skills — or let me hand you the CV as a PDF. The chips below are a quick start!`,
 });
 
-const CHIPS = ["Skills", "Projects", "About", "Contact", "CV"];
+const CHIPS = ["Skills", "Projects", "About", "Contact", "CV", "PDF"];
+
+// The little status row while Robi works. Tools carry their own progress
+// line in the gateway's tool registry — a new tool shows up here without
+// touching this file. The seconds tick live, Claude-style.
+const statusLabel = (botStatus, elapsedSeconds) => {
+  if (!botStatus) return "";
+  const clock = ` · ${elapsedSeconds.toFixed(1)}s`;
+  if (botStatus.kind === "tool") return toolProgress(botStatus.name) + clock;
+  if (botStatus.kind === "retry") {
+    return `Model busy (${botStatus.status}) — retry ${botStatus.attempt}/2${clock}`;
+  }
+  // Reasoning models stream their thoughts — show the latest fragment live.
+  const thought = botStatus.thought
+    ? ` ${botStatus.thought.replace(/\s+/g, " ").trim().slice(-80)}`
+    : "";
+  return `Thinking…${thought}${clock}`;
+};
+
+// One tap under a bubble puts its text on the clipboard — a short check
+// confirms the copy, and blocked clipboards stay silent.
+const CopyButton = ({ text }) => {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch {
+      /* clipboard blocked — nothing to confirm */
+    }
+  };
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label="Copy message"
+      title="Copy"
+      className="flex w-fit cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium text-gray-500 transition-colors hover:bg-white/5 hover:text-gray-300"
+    >
+      {copied ? (
+        <Check className="h-3 w-3 text-teal-400" />
+      ) : (
+        <Copy className="h-3 w-3" />
+      )}
+      {copied && <span className="text-teal-400">Copied</span>}
+    </button>
+  );
+};
+
+// Sibling icon action next to Copy — edit, react and delete share one shape.
+const MessageAction = ({ icon: Icon, label, onClick, active, danger }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={label}
+    title={label}
+    className={`flex w-fit cursor-pointer items-center rounded-md p-1 transition-colors hover:bg-white/5 ${
+      active
+        ? "text-teal-400"
+        : danger
+          ? "text-gray-500 hover:text-red-300"
+          : "text-gray-500 hover:text-gray-300"
+    }`}
+  >
+    <Icon className="h-3 w-3" />
+  </button>
+);
 
 const Chatbot = () => {
   const { content } = usePortfolio();
+  const { status, profile } = useAuth();
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [typing, setTyping] = useState(false);
+  // What Robi is doing right now ({kind:"thinking"} or {kind:"tool",name})
+  // — surfaced as a live status row, like the big AI chatbots do.
+  const [botStatus, setBotStatus] = useState(null);
+  // Seconds since the current busy phase started, ticking in the status row.
+  const [elapsed, setElapsed] = useState(0);
+  const busyStartRef = useRef(null);
   const [input, setInput] = useState("");
+  // Which surface fills the panel: the chat itself, the 3-dot menu, or one
+  // of the menu's destinations.
+  const [panel, setPanel] = useState(null); // null | "menu" | "history" | "settings"
+  const [sessions, setSessions] = useState(() =>
+    loadStored(STORAGE.sessions, []),
+  );
+  const [settings, setSettings] = useState(() =>
+    loadStored(STORAGE.settings, { typingDelay: true, saveHistory: true }),
+  );
+  const [gateway, setGateway] = useState(() =>
+    loadStored(STORAGE.gateway, null),
+  );
+  // Which skills are installed. Storage keeps the REMOVALS, not the full
+  // list — so a skill added to the registry later shows up installed, while
+  // deliberate uninstalls still survive reloads. (The earlier shape stored
+  // the whole list, which froze later skills out; an old array has no
+  // `.removed`, so it migrates to "everything installed" on its own.)
+  const [installedSkills, setInstalledSkills] = useState(() => {
+    const stored = loadStored(STORAGE.skills, null);
+    const removed = Array.isArray(stored?.removed) ? stored.removed : [];
+    return ALL_SKILL_NAMES.filter((name) => !removed.includes(name));
+  });
+  const [currentId, setCurrentId] = useState(null);
+  // The message being edited inline — { index, draft } while active.
+  const [editing, setEditing] = useState(null);
   const listRef = useRef(null);
   const timerRef = useRef(null);
+
+  const authed = status === "authenticated";
+  const { url: pictureUrl } = useProfilePicture(profile?.userId);
+  const email =
+    content?.contact?.mail?.href?.replace(/^mailto:/, "").split("?")[0] || "";
 
   // The editors pin a sticky save bar across the bottom — the launcher lifts
   // above it there instead of covering the Save button.
   const raised = pathname === "/edit" || pathname === "/cv/edit";
+
+  // The robot's hands, offered to the model as tools it may call. A tool
+  // exists only when it can: the CV needs a signed-in owner (the same lazy
+  // jsPDF module and picture embedding the CV tab's button uses), the email
+  // needs a configured address.
+  const toolHandlers = useMemo(() => {
+    const handlers = {};
+    if (authed && installedSkills.includes("download_cv")) {
+      handlers.download_cv = async () => {
+        const [{ buildCvPdf, cvPdfFileName }, picture] = await Promise.all([
+          import("../portfolio/cv-pdf"),
+          pictureUrl ? toDataUrl(pictureUrl) : Promise.resolve(null),
+        ]);
+        const doc = buildCvPdf(content, picture);
+        const file = cvPdfFileName(content);
+        doc.save(file);
+        return `The CV was built and saved as “${file}” — it is in the visitor's downloads now.`;
+      };
+    }
+    if (email && installedSkills.includes("copy_email")) {
+      handlers.copy_email = async () => {
+        try {
+          await navigator.clipboard.writeText(email);
+          return `${email} was copied to the visitor's clipboard.`;
+        } catch {
+          return `Clipboard access was blocked; tell the visitor the email directly: ${email}`;
+        }
+      };
+    }
+    if (authed && installedSkills.includes("count_library")) {
+      // The saved lists ride inside the portfolio content the shelf reads —
+      // no extra data call, the tool just counts what's already here.
+      handlers.count_library = () => {
+        const named = (list, activeId) =>
+          list.length === 0
+            ? "none yet"
+            : list
+                .map(
+                  (item) =>
+                    `${item.name || "Untitled"}${item.id === activeId ? " [active]" : ""}`,
+                )
+                .join(", ");
+        const cvs = content?.cvs ?? [];
+        const portfolios = content?.portfolios ?? [];
+        return `The library holds ${cvs.length} saved CV${cvs.length === 1 ? "" : "s"} (${named(cvs, content?.activeCvId)}) and ${portfolios.length} saved portfolio${portfolios.length === 1 ? "" : "s"} (${named(portfolios, content?.activePortfolioId)}).`;
+      };
+    }
+    if (installedSkills.includes("jump_to_page")) {
+      handlers.jump_to_page = ({ page } = {}) => {
+        // Accept "/projects", "projects" or a page name; anything else is an
+        // honest refusal that tells the model which pages actually exist.
+        const wanted = String(page ?? "")
+          .trim()
+          .toLowerCase()
+          .replace(/^\/+|\/+$/g, "");
+        const target = CHAT_PAGES.find(
+          (entry) =>
+            entry.keys.includes(wanted) ||
+            entry.path.replace(/\//g, "") === wanted,
+        );
+        if (!target) {
+          return `I can't jump there — the pages I can open are: ${CHAT_PAGES.map((entry) => entry.path).join(", ")}.`;
+        }
+        navigate(target.path);
+        return `Took the visitor to ${target.name} (${target.path}).`;
+      };
+    }
+    if (installedSkills.includes("share_page_link")) {
+      handlers.share_page_link = async () => {
+        const url = window.location.href;
+        try {
+          await navigator.clipboard.writeText(url);
+          return `The current page's link (${url}) was copied to the visitor's clipboard.`;
+        } catch {
+          return `Clipboard access was blocked, so the link wasn't copied. The current page's link is: ${url}`;
+        }
+      };
+    }
+    return handlers;
+  }, [authed, content, pictureUrl, email, installedSkills, navigate]);
 
   // Opening the very first chat greets the visitor once per session.
   useEffect(() => {
@@ -154,30 +786,248 @@ const Chatbot = () => {
       top: listRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, typing]);
+  }, [messages, typing, botStatus]);
+
+  // While Robi is busy (thinking or running a tool) a small clock ticks in
+  // the status row, so the wait feels accounted for.
+  useEffect(() => {
+    if (!botStatus) {
+      busyStartRef.current = null;
+      setElapsed(0);
+      return undefined;
+    }
+    if (busyStartRef.current == null) busyStartRef.current = Date.now();
+    const tick = () => setElapsed((Date.now() - busyStartRef.current) / 1000);
+    const timer = setInterval(tick, 200);
+    tick();
+    return () => clearInterval(timer);
+  }, [botStatus]);
+
+  // Persist preferences and history — history only while saving is on. The
+  // gateway is stored as-is, so Clear overrides survives reloads too.
+  useEffect(() => {
+    if (settings.saveHistory) saveStored(STORAGE.sessions, sessions);
+    else {
+      try {
+        localStorage.removeItem(STORAGE.sessions);
+      } catch {
+        /* nothing to clean up if storage is blocked */
+      }
+    }
+  }, [sessions, settings.saveHistory]);
+
+  useEffect(() => {
+    saveStored(STORAGE.settings, settings);
+  }, [settings]);
+
+  useEffect(() => {
+    saveStored(STORAGE.skills, {
+      removed: ALL_SKILL_NAMES.filter(
+        (name) => !installedSkills.includes(name),
+      ),
+    });
+  }, [installedSkills]);
+
+  useEffect(() => {
+    if (gateway) saveStored(STORAGE.gateway, gateway);
+    else {
+      try {
+        localStorage.removeItem(STORAGE.gateway);
+      } catch {
+        /* nothing to clean up if storage is blocked */
+      }
+    }
+  }, [gateway]);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
+
+  // Ending the current conversation (New session, or jumping to an old one)
+  // files it away — unless it never got past the greeting.
+  const archiveCurrent = () => {
+    if (messages.length <= 1) return;
+    const entry = {
+      id: currentId || `s-${Date.now()}`,
+      at: Date.now(),
+      messages: messages.slice(-MAX_MESSAGES),
+    };
+    setSessions((all) =>
+      [entry, ...all.filter((session) => session.id !== entry.id)].slice(
+        0,
+        MAX_SESSIONS,
+      ),
+    );
+  };
+
+  const startNewSession = () => {
+    archiveCurrent();
+    setMessages([greetingFor(content)]);
+    setCurrentId(null);
+    setPanel(null);
+  };
+
+  const restoreSession = (session) => {
+    archiveCurrent();
+    setMessages(session.messages);
+    setCurrentId(session.id);
+    setPanel(null);
+  };
+
+  const clearHistory = () => {
+    setSessions([]);
+    setCurrentId(null);
+  };
+
+  const toggleSkill = (name) =>
+    setInstalledSkills((current) =>
+      current.includes(name)
+        ? current.filter((skill) => skill !== name)
+        : [...current, name],
+    );
+
+  // Per-message actions: react toggles a thumbs-up, delete removes the
+  // bubble, edit rewrites a sent message in place.
+  const deleteMessage = (index) =>
+    setMessages((current) => current.filter((_, i) => i !== index));
+
+  const toggleReact = (index) =>
+    setMessages((current) =>
+      current.map((message, i) =>
+        i === index
+          ? { ...message, react: message.react === "up" ? undefined : "up" }
+          : message,
+      ),
+    );
+
+  const startEdit = (index) =>
+    setEditing({ index, draft: messages[index]?.text || "" });
+
+  const saveEdit = () => {
+    if (!editing) return;
+    const text = editing.draft.trim();
+    if (!text) return;
+    setMessages((current) =>
+      current.map((message, i) =>
+        i === editing.index ? { ...message, text } : message,
+      ),
+    );
+    setEditing(null);
+  };
 
   const send = (raw) => {
     const text = raw.trim();
     if (!text || typing) return;
     setInput("");
-    setMessages((current) => [...current, { from: "user", text }]);
+    // Snapshot the conversation now — the gateway round trip happens later.
+    const history = [...messages, { from: "user", text }];
+    setMessages(history);
     setTyping(true);
-    // A short pause makes the reply feel considered, not instant-magical.
-    timerRef.current = setTimeout(() => {
-      setMessages((current) => [
-        ...current,
-        { from: "bot", ...answerFor(text, content) },
-      ]);
-      setTyping(false);
-    }, 650);
+    // The clock starts right away — even the pre-send pause counts as
+    // "thinking" in the status row.
+    setBotStatus({ kind: "thinking" });
+    // A short pause makes the reply feel considered — unless the visitor
+    // turned the delay off in settings.
+    timerRef.current = setTimeout(
+      () => finishReply(history),
+      settings.typingDelay ? 650 : 0,
+    );
   };
 
-  const bubbleClass =
-    "max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed";
-  const linkClass =
-    "inline-flex cursor-pointer items-center rounded-full border border-sky-400/40 px-2.5 py-1 text-xs font-semibold text-sky-300 transition-colors hover:bg-sky-500/10";
+  // Every reply comes from the gateway's model — there is no offline brain.
+  // Without a gateway configured, the honest answer is the setup nudge. The
+  // reply bubble is created empty and fills in live as tokens stream in.
+  const finishReply = async (history) => {
+    if (!gateway) {
+      setMessages((current) => [
+        ...current,
+        {
+          from: "bot",
+          text: "I'm not wired to a brain yet 🤖 Open the ⋮ menu → Settings → AI Gateway, point me at a model, and ask me anything.",
+        },
+      ]);
+      setTyping(false);
+      setBotStatus(null);
+      return;
+    }
+    const streamId = `m-${Date.now()}`;
+    setMessages((current) => [
+      ...current,
+      { id: streamId, from: "bot", text: "" },
+    ]);
+    const onText = (text) => {
+      // First token retires the status row; from then on it's live text.
+      setTyping(false);
+      setBotStatus(null);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamId ? { ...message, text: plain(text) } : message
+        )
+      );
+    };
+    try {
+      const here = CHAT_PAGES.find((entry) => entry.path === pathname)?.name;
+      // The verified identity of whoever is chatting — not just what they
+      // claim. Null for signed-out visitors; the prompt rules then forbid
+      // account talk entirely.
+      const viewer =
+        authed && profile
+          ? {
+              firstName: profile.firstName,
+              lastName: profile.lastName,
+              email: profile.email,
+            }
+          : null;
+      const result = await callGateway(gateway, history, content, {
+        handlers: toolHandlers,
+        onText,
+        onStatus: setBotStatus,
+        currentPage: `${here || pathname} (${pathname})`,
+        viewer,
+      });
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamId
+            ? {
+                ...message,
+                text: plain(result.text) || "…",
+                meta: {
+                  seconds:
+                    result.thinkMs != null
+                      ? +(result.thinkMs / 1000).toFixed(1)
+                      : null,
+                  tokens: result.usage
+                    ? result.usage.input + result.usage.output
+                    : null,
+                },
+              }
+            : message,
+        ),
+      );
+    } catch (error) {
+      const detail =
+        error?.message || "The gateway didn't answer — please try again.";
+      // Peak-hour overloads (MiniMax-style 529s, rate limits) get advice,
+      // not a raw stack of gateway noise.
+      const busy = /\b(?:429|529)\b|overloaded|surge/i.test(detail);
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === streamId
+            ? {
+                ...message,
+                text: busy
+                  ? "⚠️ The model behind your gateway is overloaded right now — a peak-hour surge. It usually recovers in 1–5 minutes; try again shortly, or switch models in ⋮ → Settings → AI Gateway."
+                  : `⚠️ ${detail}`,
+              }
+            : message
+        )
+      );
+    }
+    setTyping(false);
+    setBotStatus(null);
+  };
+
+  const bubbleClass = "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed";
+  const headerButtonClass =
+    "cursor-pointer rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300";
 
   return (
     <>
@@ -198,129 +1048,286 @@ const Chatbot = () => {
             }`}
           >
             {/* Header */}
-            <header className="flex items-center gap-3 border-b border-white/10 bg-gray-800 px-4 py-3">
+            <header className="relative flex items-center gap-3 border-b border-white/10 bg-gray-800 px-4 py-3">
               <RobotFace size={38} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-white">
-                  Robi
-                </p>
+                <p className="truncate text-sm font-bold text-white">Robi</p>
                 <p className="flex items-center gap-1.5 text-xs text-gray-400">
-                  <span className="h-1.5 w-1.5 rounded-full bg-green-400" />
-                  online — answers instantly
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      gateway ? "bg-green-400" : "bg-amber-400"
+                    }`}
+                  />
+                  {gateway
+                    ? `online — ${gateway.model || providerMeta(gateway.provider).defaultModel}`
+                    : "online — no brain connected"}
                 </p>
               </div>
+              {/* Session menu — history and settings live here. */}
+              <button
+                type="button"
+                onClick={() => setPanel(panel === "menu" ? null : "menu")}
+                aria-label="Chat menu"
+                aria-haspopup="menu"
+                aria-expanded={panel === "menu"}
+                className={headerButtonClass}
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={startNewSession}
+                aria-label="New session"
+                title="New session"
+                className={headerButtonClass}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 aria-label="Close chat"
-                className="cursor-pointer rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+                className={headerButtonClass}
               >
                 <X className="h-4 w-4" />
               </button>
+
+              {/* The 3-dot dropdown. A click-away layer closes it. */}
+              {panel === "menu" && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Close menu"
+                    onClick={() => setPanel(null)}
+                    className="fixed inset-0 z-10 cursor-default"
+                    tabIndex={-1}
+                  />
+                  <div
+                    role="menu"
+                    className="absolute top-full right-2 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-white/10 bg-gray-800 py-1 shadow-2xl"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setPanel("history")}
+                      className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-200 transition-colors hover:bg-white/5"
+                    >
+                      <History className="h-4 w-4 text-teal-400" /> History
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setPanel("skills")}
+                      className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-200 transition-colors hover:bg-white/5"
+                    >
+                      <Puzzle className="h-4 w-4 text-teal-400" /> Skills
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => setPanel("settings")}
+                      className="flex w-full cursor-pointer items-center gap-2.5 px-3.5 py-2.5 text-sm text-gray-200 transition-colors hover:bg-white/5"
+                    >
+                      <Settings className="h-4 w-4 text-teal-400" /> Settings
+                    </button>
+                  </div>
+                </>
+              )}
             </header>
 
-            {/* Messages */}
-            <div
-              ref={listRef}
-              aria-live="polite"
-              className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
-            >
-              {messages.map((message, index) =>
-                message.from === "user" ? (
-                  <div
-                    key={index}
-                    className={`${bubbleClass} self-end rounded-br-sm bg-sky-500 font-medium text-white`}
-                  >
-                    {message.text}
-                  </div>
-                ) : (
-                  <div
-                    key={index}
-                    className={`${bubbleClass} flex flex-col items-start gap-2 self-start rounded-bl-sm border border-white/5 bg-gray-800 text-gray-200`}
-                  >
-                    <span>{message.text}</span>
-                    {message.links?.length > 0 && (
-                      <span className="flex flex-wrap gap-1.5">
-                        {message.links.map((link) =>
-                          link.external ? (
-                            <a
-                              key={link.label}
-                              href={link.href}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={linkClass}
+            {/* Body — the chat, or one of the menu destinations. */}
+            {panel === "history" ? (
+              <HistoryView
+                sessions={sessions}
+                onRestore={restoreSession}
+                onClear={clearHistory}
+                onBack={() => setPanel(null)}
+              />
+            ) : panel === "skills" ? (
+              <SkillsView
+                installed={installedSkills}
+                authed={authed}
+                email={email}
+                onToggle={toggleSkill}
+                onBack={() => setPanel(null)}
+              />
+            ) : panel === "settings" ? (
+              <SettingsView
+                settings={settings}
+                onSettingsChange={setSettings}
+                gateway={gateway}
+                onGatewayChange={setGateway}
+                onBack={() => setPanel(null)}
+              />
+            ) : (
+              <>
+                {/* Messages */}
+                <div
+                  ref={listRef}
+                  aria-live="polite"
+                  className="scrollbar-hidden flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+                >
+                  {messages.map((message, index) =>
+                    message.from === "user" ? (
+                      <div
+                        key={index}
+                        className="flex max-w-[85%] flex-col items-end gap-1 self-end"
+                      >
+                        {editing?.index === index ? (
+                          <div className="flex w-72 max-w-full flex-col gap-1.5 rounded-xl border border-sky-400/40 bg-gray-800 p-2">
+                            <textarea
+                              value={editing.draft}
+                              onChange={(event) =>
+                                setEditing({ index, draft: event.target.value })
+                              }
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" && !event.shiftKey) {
+                                  event.preventDefault();
+                                  saveEdit();
+                                }
+                                if (event.key === "Escape") setEditing(null);
+                              }}
+                              rows={2}
+                              autoFocus
+                              className="w-full resize-none bg-transparent text-sm leading-relaxed text-gray-100 outline-none"
+                            />
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setEditing(null)}
+                                className="cursor-pointer rounded-full px-2 py-1 text-[11px] font-semibold text-gray-400 transition-colors hover:text-gray-200"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={saveEdit}
+                                disabled={!editing.draft.trim()}
+                                className="cursor-pointer rounded-full bg-teal-500 px-2.5 py-1 text-[11px] font-bold text-gray-900 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div
+                              className={`${bubbleClass} rounded-br-sm bg-sky-500 font-medium text-white`}
                             >
-                              {link.label}
-                            </a>
-                          ) : (
-                            <Link
-                              key={link.label}
-                              to={link.to}
-                              onClick={() => setOpen(false)}
-                              className={linkClass}
-                            >
-                              {link.label}
-                            </Link>
-                          )
+                              {message.text}
+                            </div>
+                            <div className="flex items-center gap-0.5">
+                              <CopyButton text={message.text} />
+                              <MessageAction
+                                icon={Pencil}
+                                label="Edit message"
+                                onClick={() => startEdit(index)}
+                              />
+                              <MessageAction
+                                icon={Trash2}
+                                label="Delete message"
+                                danger
+                                onClick={() => deleteMessage(index)}
+                              />
+                            </div>
+                          </>
                         )}
+                      </div>
+                    ) : !message.text ? null : (
+                      <div
+                        key={index}
+                        className="flex max-w-[85%] flex-col gap-1 self-start"
+                      >
+                        <div
+                          className={`${bubbleClass} flex flex-col gap-1.5 rounded-bl-sm border border-white/5 bg-gray-800 text-gray-200`}
+                        >
+                          <span>{message.text}</span>
+                          {message.meta &&
+                           (message.meta.seconds != null ||
+                            message.meta.tokens != null) && (
+                            <span className="text-[11px] tabular-nums text-gray-500">
+                              {message.meta.seconds != null &&
+                                `Thought for ${message.meta.seconds}s`}
+                              {message.meta.seconds != null &&
+                                message.meta.tokens != null &&
+                                " · "}
+                              {message.meta.tokens != null &&
+                                `${message.meta.tokens} tokens`}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-0.5">
+                          <CopyButton text={message.text} />
+                          <MessageAction
+                            icon={ThumbsUp}
+                            label="React"
+                            active={message.react === "up"}
+                            onClick={() => toggleReact(index)}
+                          />
+                          <MessageAction
+                            icon={Trash2}
+                            label="Delete message"
+                            danger
+                            onClick={() => deleteMessage(index)}
+                          />
+                        </div>
+                      </div>
+                    ),
+                  )}
+                  {(typing || botStatus) && (
+                    <div className="flex items-center gap-2 self-start rounded-2xl rounded-bl-sm border border-white/5 bg-gray-800 px-3.5 py-2.5">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-teal-400" />
+                      <span className="text-xs font-medium tabular-nums text-gray-400">
+                        {statusLabel(botStatus, elapsed) || "Thinking…"}
                       </span>
-                    )}
-                  </div>
-                )
-              )}
-              {typing && (
-                <div className="flex items-center gap-1.5 self-start rounded-2xl rounded-bl-sm border border-white/5 bg-gray-800 px-3.5 py-3">
-                  {[0, 150, 300].map((delay) => (
-                    <span
-                      key={delay}
-                      style={{ animationDelay: `${delay}ms` }}
-                      className="h-1.5 w-1.5 animate-bounce rounded-full bg-teal-400"
-                    />
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick questions */}
+                <div className="flex gap-1.5 overflow-x-auto border-t border-white/10 px-3 py-2">
+                  {CHIPS.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => send(chip)}
+                      className="shrink-0 cursor-pointer rounded-full border border-white/10 bg-gray-800 px-3 py-1 text-xs font-medium text-gray-300 transition-colors hover:border-teal-400/50 hover:text-teal-300"
+                    >
+                      {chip}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
 
-            {/* Quick questions */}
-            <div className="flex gap-1.5 overflow-x-auto border-t border-white/10 px-3 py-2">
-              {CHIPS.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => send(chip)}
-                  className="shrink-0 cursor-pointer rounded-full border border-white/10 bg-gray-800 px-3 py-1 text-xs font-medium text-gray-300 transition-colors hover:border-teal-400/50 hover:text-teal-300"
+                {/* Composer */}
+                <form
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    send(input);
+                  }}
+                  className="flex items-center gap-2 border-t border-white/10 bg-gray-800 px-3 py-2.5"
                 >
-                  {chip}
-                </button>
-              ))}
-            </div>
-
-            {/* Composer */}
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                send(input);
-              }}
-              className="flex items-center gap-2 border-t border-white/10 bg-gray-800 px-3 py-2.5"
-            >
-              <input
-                type="text"
-                value={input}
-                onChange={(event) => setInput(event.target.value)}
-                onKeyDown={(event) => event.key === "Escape" && setOpen(false)}
-                placeholder="Ask about skills, projects…"
-                aria-label="Your message"
-                className="min-w-0 flex-1 rounded-full border border-white/10 bg-gray-900/70 px-3.5 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-teal-400 focus:outline-none"
-              />
-              <button
-                type="submit"
-                disabled={!input.trim() || typing}
-                aria-label="Send message"
-                className="shrink-0 cursor-pointer rounded-full bg-teal-500 p-2 text-gray-900 shadow-lg shadow-teal-500/25 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <Send className="h-4 w-4" />
-              </button>
-            </form>
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(event) => setInput(event.target.value)}
+                    onKeyDown={(event) =>
+                      event.key === "Escape" && setOpen(false)
+                    }
+                    placeholder="Ask about skills, projects…"
+                    aria-label="Your message"
+                    className="min-w-0 flex-1 rounded-full border border-white/10 bg-gray-900/70 px-3.5 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-teal-400 focus:outline-none"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!input.trim() || typing}
+                    aria-label="Send message"
+                    className="shrink-0 cursor-pointer rounded-full bg-teal-500 p-2 text-gray-900 shadow-lg shadow-teal-500/25 transition-colors hover:bg-teal-400 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <Send className="h-4 w-4" />
+                  </button>
+                </form>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

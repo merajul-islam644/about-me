@@ -11,7 +11,15 @@
     { "schemaName": "PaymentSetting", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
     { "schemaName": "PaymentSetting", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
     { "schemaName": "PaymentSetting", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentSetting", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] }
+    { "schemaName": "PaymentSetting", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "JobPreference", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "JobPreference", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "JobPreference", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "JobPreference", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "MatchedJob", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "MatchedJob", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "MatchedJob", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
+    { "schemaName": "MatchedJob", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] }
   ],
   "policies": []
 }

@@ -13,7 +13,7 @@ export const MODES = [
   },
   {
     key: "cv",
-    label: "CV",
+    label: "CV Builder",
     to: "/cv",
     icon: FileText,
     match: (path) => path.startsWith("/cv"),
@@ -33,12 +33,14 @@ export const getMode = (pathname, search = "") => {
 // The navbar is fully mode-native. Portfolio mode ends with the CV shelf —
 // the one owner destination in the bar (the portfolio shelf and portfolio
 // editor live on at their URLs, /library and /edit, but no longer sit in
-// the menu). CV mode is the owner's workspace: its menu carries just My
-// CV. Signed-out visitors clicking it are sent to login first.
+// the menu). CV mode is the owner's workspace: its menu carries My CV plus
+// the Job Alerts dashboard. Signed-out visitors clicking it
+// are sent to login first.
 export const getMenuForMode = (modeKey) =>
   modeKey === "cv"
     ? [
         { name: "My CV", to: "/cv/library" },
+        { name: "Job Alerts", to: "/cv/jobs" },
       ]
     : [
         { name: "Intro", to: "/" },

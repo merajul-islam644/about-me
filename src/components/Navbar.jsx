@@ -19,7 +19,10 @@ const Navbar = () => {
   const { content } = usePortfolio();
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
   // this user uploads their own picture.
-  const { url } = useProfilePicture(profile?.userId);
+  const { url, pending: picPending } = useProfilePicture(
+    profile?.userId,
+    status !== "unauthenticated" && !profile,
+  );
   const picture = url ?? visitorAvatar;
 
   const displayName =
@@ -110,7 +113,7 @@ const Navbar = () => {
                 <img
                   src={picture}
                   alt="Profile"
-                  className="h-8 w-8 rounded-full border-2 border-sky-400 object-cover"
+                  className={`h-8 w-8 rounded-full border-2 border-sky-400 object-cover ${picPending ? "scale-110 blur-md opacity-60 animate-pulse" : ""}`}
                 />
                 <ChevronDown
                   className={`h-4 w-4 text-gray-400 transition-transform ${menuOpen ? "rotate-180" : ""}`}

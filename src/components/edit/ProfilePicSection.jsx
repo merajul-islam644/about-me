@@ -7,8 +7,11 @@ import { useProfilePicture } from "../../portfolio/useProfilePicture";
 // Right-hand card on the Contact tab: uploads this user's profile picture.
 // Storage saves instantly — this is independent of the draft/Save flow.
 export const ProfilePicSection = () => {
-  const { profile } = useAuth();
-  const { url, uploading, error, upload } = useProfilePicture(profile?.userId);
+  const { status, profile } = useAuth();
+  const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
+    profile?.userId,
+    status !== "unauthenticated" && !profile,
+  );
   const fileInputRef = useRef(null);
   const picture = url ?? mypic;
 
@@ -26,8 +29,8 @@ export const ProfilePicSection = () => {
         src={picture}
         alt="Profile"
         className={`w-28 h-28 rounded-full object-cover border-4 border-sky-400 shadow-lg transition ${
-          uploading ? "opacity-50" : ""
-        }`}
+          picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""
+        } ${uploading ? "opacity-50" : ""}`}
       />
       <input
         ref={fileInputRef}

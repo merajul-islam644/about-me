@@ -32,7 +32,10 @@ const textToParagraphs = (text, previous = []) =>
 const About = () => {
   const { content, save } = usePortfolio();
   const { status, profile } = useAuth();
-  const { url } = useProfilePicture(profile?.userId);
+  const { url, pending: picPending } = useProfilePicture(
+    profile?.userId,
+    status !== "unauthenticated" && !profile,
+  );
 
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
   // this user uploads their own picture.
@@ -101,7 +104,7 @@ const About = () => {
         <motion.img
           src={picture}
           alt={content?.brand || "Profile"}
-          className="w-48 h-48 md:w-64 md:h-64 rounded-xl object-cover border-4 border-sky-500 shadow-lg"
+          className={`w-48 h-48 md:w-64 md:h-64 rounded-xl object-cover border-4 border-sky-500 shadow-lg ${picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""}`}
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}

@@ -1,0 +1,189 @@
+{
+  "name": "Job Alert Webhook",
+  "settings": {},
+  "nodes": [
+    {
+      "id": "hook",
+      "name": "Job Hook",
+      "category": "trigger",
+      "type": "webhook",
+      "version": "v1",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "authType": "none",
+        "httpResponseMode": "last",
+        "httpResponseData": "all",
+        "organizationId": "",
+        "roles": {
+          "operator": "all",
+          "values": []
+        },
+        "permissions": {
+          "operator": "any",
+          "values": []
+        },
+        "authorizationMode": "RolesOnly",
+        "path": "job-hook"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "normalize",
+      "name": "Normalize Post",
+      "category": "transform",
+      "type": "code",
+      "version": "v1",
+      "position": {
+        "x": 240,
+        "y": 0
+      },
+      "parameters": {
+        "mode": "each",
+        "language": "js",
+        "script": "const j = $json ?? {};\nconst body = j.output ?? j.body ?? j;\n// Telegram update shape (message / channel_post / edited_*) or a plain { title, text, url } POST.\nconst msg = body.message ?? body.channel_post ?? body.edited_message ?? body.edited_channel_post ?? body;\nconst rawText = String(msg.text ?? msg.caption ?? body.text ?? \"\");\nconst title = String(body.title ?? msg.title ?? rawText.split(\"\\n\")[0] ?? \"\").slice(0, 140);\nconst source = body.source ?? (body.message || body.channel_post ? \"telegram\" : \"webhook\");\nreturn {\n  title,\n  text: rawText.slice(0, 2000),\n  url: String(body.url ?? msg.url ?? \"\"),\n  source\n};"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "getprefs",
+      "name": "Get Preferences",
+      "category": "action",
+      "type": "httpRequest",
+      "version": "v1",
+      "position": {
+        "x": 480,
+        "y": 0
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://blocksapi.slsblx.com/data/v4/gateway",
+        "haveQueryParameters": false,
+        "haveHeaders": true,
+        "headers": {
+          "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a"
+        },
+        "authenticationType": "clientCredential",
+        "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
+        "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
+        "haveBody": true,
+        "bodyContentType": "json",
+        "body": "{\"operationName\":\"getJobPreferences\",\"query\":\"query getJobPreferences($input: DynamicQueryInput) { getJobPreferences(input: $input) { items { ItemId UserId Keywords Sources } totalCount pageNo pageSize totalPages hasNextPage hasPreviousPage } }\",\"variables\":{\"input\":{\"pageNo\":1,\"pageSize\":100}}}"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "match",
+      "name": "Match Keywords",
+      "category": "transform",
+      "type": "code",
+      "version": "v1",
+      "position": {
+        "x": 720,
+        "y": 0
+      },
+      "parameters": {
+        "mode": "each",
+        "language": "js",
+        "script": "// The gateway reply rides on the Get Preferences node: { data: { getJobPreferences: { items: [...] } } }.\nvar NL = String.fromCharCode(10);\nvar pref = (($node[\"Get Preferences\"] ?? {}).json ?? {});\nvar resp = pref.output ?? pref;\nvar items = (((resp.data ?? {}).getJobPreferences ?? {}).items) ?? [];\nvar posted = (($node[\"Normalize Post\"] ?? {}).json ?? {});\nvar post = posted.output ?? posted;\nvar title = String(post.title ?? \"\");\nvar text = String(post.text ?? \"\");\nvar haystack = (title + NL + text).toLowerCase();\nvar wordsOf = function (r) { return String((r ?? {}).Keywords ?? \"\").split(\",\").map(function (k) { return k.trim().toLowerCase(); }).filter(Boolean); };\nvar row = items.find(function (r) { return wordsOf(r).some(function (k) { return haystack.includes(k); }); });\nif (!row) return { hit: false, userId: \"\", title: title.slice(0, 140), snippet: text.slice(0, 300), url: String(post.url ?? \"\"), source: String(post.source ?? \"webhook\"), matchedOn: \"\", debugResp: JSON.stringify(resp ?? null) };\nvar matched = wordsOf(row).filter(function (k) { return haystack.includes(k); });\nreturn {\n  hit: matched.length > 0,\n  userId: row.UserId ?? \"\",\n  title: (title || text.split(NL)[0] || \"Untitled post\").slice(0, 140),\n  snippet: text.slice(0, 300),\n  url: String(post.url ?? \"\"),\n  source: String(post.source ?? \"webhook\"),\n  matchedOn: matched.join(\", \")\n};"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "ismatch",
+      "name": "Matched?",
+      "category": "logic",
+      "type": "if",
+      "version": "v1",
+      "position": {
+        "x": 960,
+        "y": 0
+      },
+      "parameters": {
+        "conditionType": "all",
+        "conditions": [
+          {
+            "left": "{{$json.hit}}",
+            "operator": "equals",
+            "right": "true",
+            "type": "string"
+          }
+        ]
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "save",
+      "name": "Save Matched Job",
+      "category": "action",
+      "type": "httpRequest",
+      "version": "v1",
+      "position": {
+        "x": 1200,
+        "y": -80
+      },
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://blocksapi.slsblx.com/data/v4/gateway",
+        "haveQueryParameters": false,
+        "haveHeaders": true,
+        "headers": {
+          "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a"
+        },
+        "authenticationType": "clientCredential",
+        "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
+        "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
+        "haveBody": true,
+        "bodyContentType": "json",
+        "body": "{\"operationName\":\"insertMatchedJob\",\"query\":\"mutation insertMatchedJob($input: MatchedJobInsertInput!) { insertMatchedJob(input: $input) { acknowledged itemId message totalImpactedData } }\",\"variables\":{\"input\":{\"UserId\":\"{{$json.userId}}\",\"Title\":\"{{$json.title}}\",\"Source\":\"{{$json.source}}\",\"Url\":\"{{$json.url}}\",\"Snippet\":\"{{$json.snippet}}\",\"MatchedOn\":\"{{$json.matchedOn}}\",\"IsRead\":\"false\"}}}"
+      },
+      "settings": {},
+      "pinData": null
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "hook",
+      "target": "normalize",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e2",
+      "source": "normalize",
+      "target": "getprefs",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e3",
+      "source": "getprefs",
+      "target": "match",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e4",
+      "source": "match",
+      "target": "ismatch",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e5",
+      "source": "ismatch",
+      "target": "save",
+      "sourceHandle": "if-true",
+      "targetHandle": "target"
+    }
+  ]
+}

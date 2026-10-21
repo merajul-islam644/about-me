@@ -61,7 +61,10 @@ const CONTACT_FIELDS = [
 const Hero = () => {
   const { content, save } = usePortfolio();
   const { status, profile } = useAuth();
-  const { url, uploading, error, upload } = useProfilePicture(profile?.userId);
+  const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
+    profile?.userId,
+    status !== "unauthenticated" && !profile,
+  );
   const { pathname } = useLocation();
 
   // CV mode swaps the words, not the face: same layout and picture, but the
@@ -313,7 +316,7 @@ const Hero = () => {
       <button
         type="button"
         onClick={() => setDesignOpen(true)}
-        title="Change the CV's theme"
+        title="Browse more CV templates"
         className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300"
       >
         {/* The icon is a tiny color wheel — the one glyph that says
@@ -322,7 +325,7 @@ const Hero = () => {
         <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[conic-gradient(from_180deg,#f472b6,#fb923c,#facc15,#4ade80,#22d3ee,#818cf8,#f472b6)] group-hover:animate-spin [animation-duration:3s]">
           <span className="h-2 w-2 rounded-full bg-gray-900" />
         </span>
-        Themes
+        More Templates
       </button>
     </div>
   ) : null;
@@ -362,7 +365,7 @@ const Hero = () => {
         <img
           src={picture}
           alt={content?.brand || "Profile"}
-          className={`w-full h-full object-cover ${t.photoFrame} shadow-lg transition ${uploading ? "opacity-50" : ""}`}
+          className={`w-full h-full object-cover ${t.photoFrame} shadow-lg transition ${picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""} ${uploading ? "opacity-50" : ""}`}
         />
         {/* Mobile: a camera badge pinned to the avatar. Desktop: a full
             hover overlay. One button, two presentations. Shown only when

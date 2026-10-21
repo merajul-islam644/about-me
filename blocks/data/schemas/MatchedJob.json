@@ -1,0 +1,50 @@
+{
+  "schemaName": "MatchedJob",
+  "collectionName": "MatchedJobs",
+  "schemaType": 1,
+  "description": "A community or social post the Job Alerts workflow matched against a user's keywords.",
+  "fields": [
+    {
+      "name": "UserId",
+      "type": "String",
+      "isArray": false,
+      "description": "IAM record id of the user whose keywords matched"
+    },
+    {
+      "name": "Title",
+      "type": "String",
+      "isArray": false,
+      "description": "Post title, or its first line when the source has no title"
+    },
+    {
+      "name": "Source",
+      "type": "String",
+      "isArray": false,
+      "description": "Where the post came from: telegram | rss | webhook"
+    },
+    {
+      "name": "Url",
+      "type": "String",
+      "isArray": false,
+      "description": "Link to the original post, when the source provides one"
+    },
+    {
+      "name": "Snippet",
+      "type": "String",
+      "isArray": false,
+      "description": "First ~300 characters of the post text"
+    },
+    {
+      "name": "MatchedOn",
+      "type": "String",
+      "isArray": false,
+      "description": "Comma-separated keywords that matched"
+    },
+    {
+      "name": "IsRead",
+      "type": "String",
+      "isArray": false,
+      "description": "true once the owner has opened it in the Job Alerts page; false until then"
+    }
+  ]
+}

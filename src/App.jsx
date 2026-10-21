@@ -10,6 +10,7 @@ import CallbackPage from "./components/CallbackPage";
 import Chatbot from "./components/Chatbot";
 import EditPage from "./components/EditPage";
 import { CvShelf, PortfolioShelf } from "./components/ShelfPage";
+import JobAlertsPage from "./components/JobAlertsPage";
 import { RequireAuth, RedirectIfAuthenticated } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
@@ -74,6 +75,18 @@ const App = () => {
           }
         >
           <Route index element={<CvShelf />} />
+        </Route>
+        {/* Job Alerts — the keywords the workflow watches for and the
+            community posts it matched. Same gating as the shelves. */}
+        <Route
+          path="/cv/jobs"
+          element={
+            <RequireAuth>
+              <PortfolioGate />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<JobAlertsPage />} />
         </Route>
         <Route
           path="/login"

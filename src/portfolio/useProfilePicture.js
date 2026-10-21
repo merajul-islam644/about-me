@@ -26,32 +26,63 @@ const publish = (userId, url) => {
 // pre-signed URL (null until storage answers — callers keep their bundled
 // fallback), plus the upload flow. `userId` comes from useAuth().profile;
 // the effect re-runs when the profile arrives after the session check.
-export const useProfilePicture = (userId) => {
+// `authPending` covers BOTH still-resolving windows — the session check
+// (status "loading") and the profile fetch after status flips to
+// "authenticated" (profile lands a beat later) — either way a picture may
+// exist, so callers hold the blurred placeholder instead of flashing
+// cartoon → blur → photo.
+export const useProfilePicture = (userId, authPending = false) => {
   const [url, setUrl] = useState(null);
+  // True while we don't yet know "uploaded vs not" — callers blur their
+  // placeholder for that window instead of showing the cartoon.
+  const [pending, setPending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!userId) return undefined;
+    if (authPending) {
+      // Session check or profile fetch still in flight — assume a picture
+      // may exist and keep the placeholder blurred until we know for sure.
+      setUrl(null);
+      setPending(true);
+      return undefined;
+    }
+    if (!userId) {
+      // Signed out (or profile not resolved yet): drop the last picture so
+      // every mounted instance falls back to the cartoon avatar instead of
+      // showing the previous session's upload.
+      setUrl(null);
+      setPending(false);
+      return undefined;
+    }
     const key = cacheKey(userId);
     let cancelled = false;
-    const listener = (next) => setUrl(next);
+    const listener = (next) => {
+      setUrl(next);
+      setPending(false);
+    };
     if (!listeners.has(key)) listeners.set(key, new Set());
     listeners.get(key).add(listener);
 
     const shared = urlMemory.get(key);
     if (shared && Date.now() - shared.at < SHARE_TTL_MS) {
       setUrl(shared.url); // fresh enough — skip the duplicate lookup
+      setPending(false);
     } else {
+      setPending(true);
       setUrl(null);
       getProfilePictureUrl(userId)
         .then((nextUrl) => {
-          if (cancelled || !nextUrl) return;
+          if (cancelled) return;
+          setPending(false);
+          if (!nextUrl) return; // no upload — callers keep the cartoon
           urlMemory.set(key, { url: nextUrl, at: Date.now() });
           setUrl(nextUrl);
         })
         .catch(() => {
           // Keep the current picture — storage being down shouldn't blank the page.
+          if (cancelled) return;
+          setPending(false);
         });
     }
 
@@ -59,7 +90,7 @@ export const useProfilePicture = (userId) => {
       cancelled = true;
       listeners.get(key)?.delete(listener);
     };
-  }, [userId]);
+  }, [userId, authPending]);
 
   const upload = useCallback(
     async (file) => {
@@ -82,5 +113,5 @@ export const useProfilePicture = (userId) => {
     [userId]
   );
 
-  return { url, uploading, error, upload };
+  return { url, pending, uploading, error, upload };
 };

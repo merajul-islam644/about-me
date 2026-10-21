@@ -1,0 +1,157 @@
+{
+  "name": "Job Feed Poller Arbeitnow",
+  "settings": {},
+  "nodes": [
+    {
+      "id": "tick",
+      "name": "Poll Hook",
+      "category": "trigger",
+      "type": "webhook",
+      "version": "v1",
+      "position": { "x": 0, "y": 0 },
+      "parameters": {
+        "httpMethod": "POST",
+        "authType": "none",
+        "httpResponseMode": "last",
+        "httpResponseData": "all",
+        "organizationId": "",
+        "roles": { "operator": "all", "values": [] },
+        "permissions": { "operator": "any", "values": [] },
+        "authorizationMode": "RolesOnly",
+        "path": "poll-hook-ar"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "prefs",
+      "name": "Get Preferences",
+      "category": "action",
+      "type": "httpRequest",
+      "version": "v1",
+      "position": { "x": 200, "y": 0 },
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://blocksapi.slsblx.com/data/v4/gateway",
+        "haveQueryParameters": false,
+        "haveHeaders": true,
+        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "authenticationType": "clientCredential",
+        "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
+        "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
+        "haveBody": true,
+        "bodyContentType": "json",
+        "body": "{\"operationName\":\"getJobPreferences\",\"query\":\"query getJobPreferences($input: DynamicQueryInput) { getJobPreferences(input: $input) { items { ItemId UserId Keywords Sources } totalCount pageNo pageSize totalPages hasNextPage hasPreviousPage } }\",\"variables\":{\"input\":{\"pageNo\":1,\"pageSize\":100}}}"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "feed",
+      "name": "AR Feed",
+      "category": "action",
+      "type": "proxy",
+      "version": "v1",
+      "position": { "x": 400, "y": 0 },
+      "parameters": {
+        "slug": "arfeed",
+        "routeMethod": "GET",
+        "routePath": "api/job-board-api",
+        "haveQuery": false,
+        "haveBody": false
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "existing",
+      "name": "Existing Jobs",
+      "category": "action",
+      "type": "httpRequest",
+      "version": "v1",
+      "position": { "x": 600, "y": 0 },
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://blocksapi.slsblx.com/data/v4/gateway",
+        "haveQueryParameters": false,
+        "haveHeaders": true,
+        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "authenticationType": "clientCredential",
+        "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
+        "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
+        "haveBody": true,
+        "bodyContentType": "json",
+        "body": "{\"operationName\":\"getMatchedJobs\",\"query\":\"query getMatchedJobs($input: DynamicQueryInput) { getMatchedJobs(input: $input) { items { ItemId UserId Url } totalCount pageNo pageSize totalPages hasNextPage hasPreviousPage } }\",\"variables\":{\"input\":{\"pageNo\":1,\"pageSize\":100}}}"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "process",
+      "name": "Process Feeds",
+      "category": "transform",
+      "type": "code",
+      "version": "v1",
+      "position": { "x": 800, "y": 0 },
+      "parameters": {
+        "mode": "all",
+        "language": "js",
+        "script": "// Poller (AR): Arbeitnow job board JSON via the proxy, match keywords.\nvar now = Date.now();\nvar CUT = 48 * 60 * 60 * 1000;\nfunction nodeJson(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var j = n.json ?? null;\n  if (j && typeof j === \"object\" && Object.keys(j).length > 0) return j;\n  try {\n    var al = (typeof n.all === \"function\") ? n.all() : n.all;\n    if (Array.isArray(al) && al.length) {\n      var x = (al[0] ?? {}).json ?? al[0];\n      if (x && typeof x === \"object\" && Object.keys(x).length > 0) return x;\n    }\n  } catch (e) {}\n  return {};\n}\nvar prefNode = nodeJson(\"Get Preferences\");\nvar prefResp = prefNode.output ?? prefNode;\nvar prefItems = ((((prefResp.data ?? {}).getJobPreferences ?? {}).items) ?? []);\nvar keywords = [];\nvar userId = \"\";\nfor (var i = 0; i < prefItems.length; i++) {\n  var row = prefItems[i] ?? {};\n  var u = String(row.UserId ?? \"\");\n  var ks = String(row.Keywords ?? \"\").split(\",\").map(function (k) { return k.trim().toLowerCase(); }).filter(Boolean);\n  if (u && ks.length && !userId) userId = u;\n  for (var j = 0; j < ks.length; j++) if (keywords.indexOf(ks[j]) < 0) keywords.push(ks[j]);\n}\nif (!keywords.length || !userId) return [{ hit: false, dbg: \"noprefs pc=\" + prefItems.length + \" kw=\" + keywords.join(\"|\") + \" uid=\" + (userId ? \"Y\" : \"N\") }];\nvar exNode = nodeJson(\"Existing Jobs\");\nvar exResp = exNode.output ?? exNode;\nvar exItems = ((((exResp.data ?? {}).getMatchedJobs ?? {}).items) ?? []);\nvar seen = {};\nfor (var e = 0; e < exItems.length; e++) {\n  var k0 = String((exItems[e] ?? {}).Url ?? \"\").trim().toLowerCase();\n  if (k0) seen[k0] = true;\n}\nfunction stripHtml(s) {\n  return String(s ?? \"\").replace(/<[^>]*>/g, \" \").split(\" \").filter(Boolean).join(\" \");\n}\nfunction allOf(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var al = (typeof n.all === \"function\") ? n.all() : n.all;\n  al = Array.isArray(al) ? al : [];\n  var arr = [];\n  for (var q = 0; q < al.length; q++) {\n    var x = (al[q] ?? {}).json ?? al[q];\n    if (x) arr.push(x);\n  }\n  return arr;\n}\n// The proxy spreads a JSON object into one item per top-level key; find the item holding .data.\nvar rows = [];\nvar feedArr = allOf(\"AR Feed\");\nfor (var f = 0; f < feedArr.length; f++) {\n  var obj = feedArr[f];\n  if (obj && typeof obj === \"object\" && Array.isArray(obj.data) && obj.data.length > rows.length) rows = obj.data;\n}\nvar posts = [];\nfor (var c = 0; c < rows.length; c++) {\n  var it = rows[c] ?? {};\n  var title = String(it.title ?? \"\");\n  var link = String(it.url ?? \"\");\n  if (!title || !link) continue;\n  var tsn = Number(it.created_at ?? 0);\n  var ts = tsn > 0 ? (tsn > 1e12 ? tsn : tsn * 1000) : 0;\n  if (ts && now - ts > CUT) continue;\n  posts.push({ title: title, company: String(it.company_name ?? \"\"), url: link, snippet: stripHtml(it.description).slice(0, 300), ts: ts });\n}\nposts.sort(function (x, y) { return (y.ts || 0) - (x.ts || 0); });\nvar out = [];\nvar runSeen = {};\nfor (var p = 0; p < posts.length && out.length < 10; p++) {\n  var post = posts[p];\n  var key = String(post.url ?? \"\").trim().toLowerCase();\n  if (!key || seen[key] || runSeen[key]) continue;\n  runSeen[key] = true;\n  var hay = (post.title + \" \" + post.company + \" \" + post.snippet).toLowerCase();\n  var matched = [];\n  for (var m = 0; m < keywords.length; m++) if (hay.indexOf(keywords[m]) >= 0) matched.push(keywords[m]);\n  if (!matched.length) continue;\n  out.push({ hit: true, userId: userId, title: (post.title || \"Untitled post\").slice(0, 140), snippet: post.snippet, url: post.url, matchedOn: \"ar |\" + matched.join(\", \") });\n}\nif (out.length) return out;\nreturn [{ hit: false, dbg: JSON.stringify({ pc: prefItems.length, fh: feedArr.length, rows: rows.length, ex: exItems.length, p48: posts.length }).slice(0, 500) }];"
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "ismatch",
+      "name": "Matched?",
+      "category": "logic",
+      "type": "if",
+      "version": "v1",
+      "position": { "x": 1000, "y": 0 },
+      "parameters": {
+        "conditionType": "all",
+        "conditions": [
+          {
+            "left": "{{$json.hit}}",
+            "operator": "equals",
+            "right": "true",
+            "type": "string"
+          }
+        ]
+      },
+      "settings": {},
+      "pinData": null
+    },
+    {
+      "id": "save",
+      "name": "Save Matched Job",
+      "category": "action",
+      "type": "httpRequest",
+      "version": "v1",
+      "position": { "x": 1200, "y": -80 },
+      "parameters": {
+        "httpMethod": "POST",
+        "url": "https://blocksapi.slsblx.com/data/v4/gateway",
+        "haveQueryParameters": false,
+        "haveHeaders": true,
+        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "authenticationType": "clientCredential",
+        "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
+        "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
+        "haveBody": true,
+        "bodyContentType": "json",
+        "body": "{\"operationName\":\"insertMatchedJob\",\"query\":\"mutation insertMatchedJob($input: MatchedJobInsertInput!) { insertMatchedJob(input: $input) { acknowledged itemId message totalImpactedData } }\",\"variables\":{\"input\":{\"UserId\":\"{{$json.userId}}\",\"Title\":\"{{$json.title}}\",\"Source\":\"ar\",\"Url\":\"{{$json.url}}\",\"Snippet\":\"{{$json.snippet}}\",\"MatchedOn\":\"{{$json.matchedOn}}\",\"IsRead\":\"false\"}}}"
+      },
+      "settings": {},
+      "pinData": null
+    }
+  ],
+  "edges": [
+    { "id": "e1", "source": "tick", "target": "prefs", "sourceHandle": "source", "targetHandle": "target" },
+    { "id": "e2", "source": "prefs", "target": "feed", "sourceHandle": "source", "targetHandle": "target" },
+    { "id": "e3", "source": "feed", "target": "existing", "sourceHandle": "source", "targetHandle": "target" },
+    { "id": "e5", "source": "existing", "target": "process", "sourceHandle": "source", "targetHandle": "target" },
+    { "id": "e6", "source": "process", "target": "ismatch", "sourceHandle": "source", "targetHandle": "target" },
+    { "id": "e7", "source": "ismatch", "target": "save", "sourceHandle": "if-true", "targetHandle": "target" }
+  ]
+}

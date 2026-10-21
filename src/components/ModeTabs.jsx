@@ -1,18 +1,14 @@
 import { Link, useLocation } from "react-router-dom";
-import { useAuth } from "../auth/auth-context";
 import { getMode, MODES } from "../modes";
 
 // The landing switcher: pick what you're building today. Portfolio is the
 // live showcase; CV opens its own workspace. Active state follows the URL
 // through getMode — which reads ?returnTo on /login, so the strip agrees
-// with the navbar about which mode the login page is wearing. Visitors see
-// the strip and flip between the two showcases; the signed-in owner
-// doesn't need it — the navbar's own menus (My CV beside My portfolio) are
-// their switcher.
+// with the navbar about which mode the login page is wearing. Everyone
+// sees it — visitors flip between the showcases, and the signed-in owner
+// too (the navbar menus stay as the second way across).
 export const ModeTabs = () => {
   const { pathname, search } = useLocation();
-  const { status } = useAuth();
-  if (status === "authenticated") return null;
   const current = getMode(pathname, search);
   return (
     <div className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-gray-900/70 p-1">

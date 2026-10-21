@@ -12,6 +12,7 @@ import {
   Library,
   Loader2,
   MoreVertical,
+  PenLine,
   Pencil,
   Plus,
   Puzzle,
@@ -27,6 +28,7 @@ import { usePortfolio } from "../portfolio/portfolio-context";
 import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { toDataUrl } from "../portfolio/portfolio-export";
+import { createFreshCv, newId, normalizeContent } from "../content/portfolioShape";
 import {
   PROVIDERS,
   SKILL_REGISTRY,
@@ -106,6 +108,7 @@ const SKILL_ICONS = {
   jump_to_page: Compass,
   count_library: Library,
   share_page_link: Share2,
+  write_cv: PenLine,
 };
 
 // The pages Page Jumper may open — the public showcase routes from App.jsx,
@@ -482,7 +485,8 @@ const SettingsView = ({
 // The skills store: one card per capability Robi can be given. Installing
 // hands the skill's tool to the model; uninstalling takes it away, and the
 // choice survives reloads on this device. A skill that can't run right now
-// (the CV needs a signed-in owner, the email needs an address) says why.
+// (the library counter needs a signed-in owner, the email needs an
+// address) says why.
 const SkillsView = ({ installed, authed, email, onToggle, onBack }) => (
   <div className="flex flex-1 flex-col overflow-hidden">
     <div className="border-b border-white/10 px-3 py-2">
@@ -503,9 +507,8 @@ const SkillsView = ({ installed, authed, email, onToggle, onBack }) => (
         const isInstalled = installed.includes(skill.name);
         const Icon = SKILL_ICONS[skill.name];
         const blocked =
-          (skill.name === "download_cv" || skill.name === "count_library") &&
-          !authed
-            ? "Needs a signed-in owner — it works on your account only."
+          (skill.name === "count_library" || skill.name === "write_cv") && !authed
+            ? "Needs a signed-in owner — it saves into your library."
             : skill.name === "copy_email" && !email
               ? "No contact email configured yet."
               : null;
@@ -637,7 +640,7 @@ const MessageAction = ({ icon: Icon, label, onClick, active, danger }) => (
 );
 
 const Chatbot = () => {
-  const { content } = usePortfolio();
+  const { content, save } = usePortfolio();
   const { status, profile } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -689,12 +692,13 @@ const Chatbot = () => {
   const raised = pathname === "/edit";
 
   // The robot's hands, offered to the model as tools it may call. A tool
-  // exists only when it can: the CV needs a signed-in owner (the same lazy
-  // jsPDF module and picture embedding the CV tab's button uses), the email
-  // needs a configured address.
+  // exists only when it can: the library counter needs a signed-in owner,
+  // the email needs a configured address. The CV PDF builds for everyone —
+  // visitors get the same document the /cv page shows (the same lazy jsPDF
+  // module the print preview uses).
   const toolHandlers = useMemo(() => {
     const handlers = {};
-    if (authed && installedSkills.includes("download_cv")) {
+    if (installedSkills.includes("download_cv")) {
       handlers.download_cv = async () => {
         const [{ buildCvPdf, cvPdfFileName }, picture] = await Promise.all([
           import("../portfolio/cv-pdf"),
@@ -704,6 +708,70 @@ const Chatbot = () => {
         const file = cvPdfFileName(content);
         doc.save(file);
         return `The CV was built and saved as “${file}” — it is in the visitor's downloads now.`;
+      };
+    }
+    if (authed && installedSkills.includes("write_cv")) {
+      // The model does the thinking — profession analysis and the writing —
+      // and calls this once with the finished CV. This side only sanitizes
+      // shapes, stamps fresh ids and saves it as a NEW CV through the
+      // shelf's own flow, so nothing the owner built is ever overwritten.
+      handlers.write_cv = async ({ title, profession, sections } = {}) => {
+        const clean = (value, max) => String(value ?? "").trim().slice(0, max);
+        const safeSections = (Array.isArray(sections) ? sections : [])
+          .slice(0, 12)
+          .map((section) => {
+            const type = ["entry", "list", "text"].includes(section?.type)
+              ? section.type
+              : "text";
+            const incoming = Array.isArray(section?.items)
+              ? section.items.slice(0, 20)
+              : [];
+            const items =
+              type === "entry"
+                ? incoming
+                    .filter((item) =>
+                      [item?.heading, item?.sub, item?.details].some((field) =>
+                        String(field ?? "").trim(),
+                      ),
+                    )
+                    .map((item) => ({
+                      id: newId("cvi"),
+                      heading: clean(item?.heading, 120),
+                      sub: clean(item?.sub, 120),
+                      period: clean(item?.period, 60),
+                      details: clean(item?.details, 600),
+                    }))
+                : incoming
+                    .filter((item) => String(item?.text ?? "").trim())
+                    .map((item) => ({
+                      id: newId("cvi"),
+                      text: clean(item?.text, 1000),
+                    }));
+            return {
+              id: newId("cvs"),
+              type,
+              title: clean(section?.title, 60) || "Untitled section",
+              page: "intro",
+              items,
+            };
+          })
+          .filter((section) => section.items.length > 0);
+        if (safeSections.length === 0) {
+          return "No usable sections arrived — the CV was not saved. Ask the member to try again.";
+        }
+        const headline = clean(title, 80);
+        const list = content?.cvs ?? [];
+        const fresh = createFreshCv(content, headline);
+        if (headline) fresh.title = headline;
+        fresh.sections = safeSections;
+        await save(
+          normalizeContent(
+            { ...content, cvs: [...list, fresh], activeCvId: fresh.id },
+            content,
+          ),
+        );
+        navigate("/cv");
+        return `Saved the new CV "${fresh.name}" (${profession || "profession"} track, ${safeSections.length} sections) to the library, made it the active CV and opened it at /cv.`;
       };
     }
     if (email && installedSkills.includes("copy_email")) {
@@ -766,7 +834,7 @@ const Chatbot = () => {
       };
     }
     return handlers;
-  }, [authed, content, pictureUrl, email, installedSkills, navigate]);
+  }, [authed, content, pictureUrl, email, installedSkills, navigate, save]);
 
   // Opening the very first chat greets the visitor once per session.
   useEffect(() => {

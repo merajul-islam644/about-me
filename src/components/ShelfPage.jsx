@@ -5,28 +5,39 @@ import {
   Eye,
   FilePlus2,
   FolderPlus,
+  LayoutGrid,
+  List,
   Loader2,
   Pencil,
   PenLine,
   Trash2,
 } from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
+import { pushNotification } from "../portfolio/notifications";
 import {
   blankPortfolioFields,
-  defaultCvFor,
+  createFreshCv,
   getActiveCv,
   getActivePortfolio,
   normalizeContent,
-  seedSections,
 } from "../content/portfolioShape";
 import { ModeTabs } from "./ModeTabs";
-import { DownloadCvButton } from "./cv/DownloadCvButton";
-import { TemplateGallery } from "./cv/TemplateGallery";
+import { NewCvModal } from "./cv/NewCvModal";
 
 const newId = (prefix) =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${prefix}-${Math.random().toString(16).slice(2)}`;
+
+// The CV shelf's layout pick survives reloads — a per-device preference.
+const SHELF_VIEW_KEY = "cv-shelf-view";
+const readShelfView = () => {
+  try {
+    return localStorage.getItem(SHELF_VIEW_KEY) === "list" ? "list" : "grid";
+  } catch {
+    return "grid";
+  }
+};
 
 // The "New …" pill — used in the shelf header and in the empty state.
 const NewButton = ({ busy, kind, label, onClick }) => (
@@ -45,6 +56,32 @@ const NewButton = ({ busy, kind, label, onClick }) => (
     )}
     {label}
   </button>
+);
+
+// Grid/list switch — two icon pills, the active layout lights up.
+const ViewToggle = ({ view, onChange }) => (
+  <div className="flex items-center gap-1 rounded-full border border-white/10 p-1">
+    {[
+      { key: "grid", label: "Grid view", Icon: LayoutGrid },
+      { key: "list", label: "List view", Icon: List },
+    ].map(({ key, label, Icon }) => (
+      <button
+        key={key}
+        type="button"
+        onClick={() => onChange(key)}
+        title={label}
+        aria-label={label}
+        aria-pressed={view === key}
+        className={`cursor-pointer rounded-full p-1.5 transition-colors ${
+          view === key
+            ? "bg-white/10 text-sky-300"
+            : "text-gray-400 hover:text-sky-300"
+        }`}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    ))}
+  </div>
 );
 
 // Per-kind wiring for the two shelves — what the list is, how a fresh item
@@ -111,17 +148,11 @@ const SHELF_KINDS = {
     list: (content) => content.cvs ?? [],
     switchPatch: (id) => ({ activeCvId: id }),
     // A fresh CV is seeded from the active portfolio's hero — same personal
-    // defaults as a first CV. A picked template seeds its sections through
-    // the shared seedSections (fresh ids, starter items included); blank
-    // starts with none.
-    create: (content, preset = null) => {
+    // defaults as a first CV, with a blank section list to grow. The title
+    // typed in the modal names it; an empty one keeps the default "CV N".
+    create: (content, name = "") => {
       const list = content.cvs ?? [];
-      const fresh = {
-        id: newId("cv"),
-        name: `CV ${list.length + 1}`,
-        ...defaultCvFor({ hero: content.hero }),
-        sections: preset ? seedSections(preset) : [],
-      };
+      const fresh = createFreshCv(content, name);
       return {
         patch: { cvs: [...list, fresh], activeCvId: fresh.id },
         fresh,
@@ -142,9 +173,16 @@ export const ShelfPage = ({ kind }) => {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  // The CV shelf's New button opens the template gallery first; the
-  // portfolio shelf creates straight away.
-  const [templateOpen, setTemplateOpen] = useState(false);
+  // The CV shelf's New button opens the New CV modal first; the portfolio
+  // shelf creates straight away.
+  const [newCvOpen, setNewCvOpen] = useState(false);
+  // The title typed in the modal — the new CV's name. Empty keeps the
+  // default "CV N"; the field starts clean every time the modal opens.
+  const [newCvName, setNewCvName] = useState("");
+  // Shelf layout — "grid" (two-column cards) or "list" (full-width rows).
+  // The toggle lives on the CV shelf; the portfolio shelf keeps grid. The
+  // pick persists per device, so a refresh reopens the same layout.
+  const [shelfView, setShelfView] = useState(readShelfView);
 
   if (!content) return null;
 
@@ -174,14 +212,20 @@ export const ShelfPage = ({ kind }) => {
     }
   };
 
-  const createItem = async (preset = null) => {
+  const createItem = async () => {
     if (busy) return;
     setError(null);
     setBusy(true);
     try {
-      const { patch, to } = spec.create(content, preset);
+      const { patch, fresh, to } = spec.create(content, newCvName);
       await persist(patch);
-      setTemplateOpen(false);
+      setNewCvName("");
+      setNewCvOpen(false);
+      pushNotification({
+        kind: kind === "cv" ? "cv" : "info",
+        title: `"${fresh.name}" created`,
+        detail: `Added to ${spec.title.toLowerCase()} and made active.`,
+      });
       navigate(to);
     } catch (createError) {
       setError(createError?.message || "Creating failed — please try again.");
@@ -190,7 +234,23 @@ export const ShelfPage = ({ kind }) => {
     }
   };
 
-  const handleNew = () => (kind === "cv" ? setTemplateOpen(true) : createItem());
+  // Layout changes persist per device — best-effort (private mode or a
+  // full storage leaves the in-memory pick working for this visit).
+  const changeShelfView = (view) => {
+    setShelfView(view);
+    try {
+      localStorage.setItem(SHELF_VIEW_KEY, view);
+    } catch {
+      // Storage unavailable — keep going with the in-memory pick.
+    }
+  };
+
+  const handleNew = () => {
+    if (kind !== "cv") return createItem();
+    // A fresh modal always starts with a clean title field.
+    setNewCvName("");
+    setNewCvOpen(true);
+  };
 
   // Rename asks for the new name and saves it straight into the list —
   // cancelling the prompt changes nothing.
@@ -206,6 +266,11 @@ export const ShelfPage = ({ kind }) => {
         [listKey]: items.map((entry) =>
           entry.id === item.id ? { ...entry, name: trimmed } : entry
         ),
+      });
+      pushNotification({
+        kind: kind === "cv" ? "cv" : "info",
+        title: `Renamed to "${trimmed}"`,
+        detail: `The ${spec.title.toLowerCase()} card shows the new name.`,
       });
     } catch (renameError) {
       setError(renameError?.message || "Renaming failed — please try again.");
@@ -234,6 +299,11 @@ export const ShelfPage = ({ kind }) => {
         // exactly as it was.
         [activeKey]:
           item.id === currentActiveId ? remaining[0]?.id : currentActiveId,
+      });
+      pushNotification({
+        kind: kind === "cv" ? "cv" : "info",
+        title: `"${item.name ?? "Untitled"}" deleted`,
+        detail: "Removed from the shelf — this cannot be undone.",
       });
     } catch (deleteError) {
       setError(deleteError?.message || "Deleting failed — please try again.");
@@ -284,44 +354,69 @@ export const ShelfPage = ({ kind }) => {
 
         <section className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-bold text-white">{spec.title}</h3>
-          <div className="flex flex-wrap items-center gap-2">
-            {/* The CV shelf keeps the PDF export (the retired Edit CV page
-                was its old home): Download builds the active CV. */}
-            {kind === "cv" && <DownloadCvButton />}
-            <NewButton
-              busy={busy}
-              kind={kind}
-              label={spec.newLabel}
-              onClick={handleNew}
-            />
-          </div>
+          {/* The one "New" rule: an empty shelf carries its button in the
+              empty state below, a stocked one here — never both at once. */}
+          {items.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {/* The layout switch sits left of the New button. */}
+              {kind === "cv" && (
+                <ViewToggle view={shelfView} onChange={changeShelfView} />
+              )}
+              <NewButton
+                busy={busy}
+                kind={kind}
+                label={spec.newLabel}
+                onClick={handleNew}
+              />
+            </div>
+          )}
         </section>
 
-        <div className="grid gap-4 sm:grid-cols-2 -mt-3">
+        {/* Grid: two-column cards. List: full-width rows with the actions
+            pushed to the right (stacked back to back on small screens). */}
+        <div
+          className={
+            shelfView === "grid"
+              ? "grid -mt-3 gap-4 sm:grid-cols-2"
+              : "flex -mt-3 flex-col gap-3"
+          }
+        >
           {items.map((item) => {
             const isActive = item.id === currentActiveId;
             return (
               <article
                 key={item.id}
-                className={`flex flex-col gap-3 rounded-2xl border bg-gray-800 p-5 shadow-xl ${
+                className={`flex rounded-2xl border bg-gray-800 p-5 shadow-xl ${
                   isActive ? "border-sky-400/60" : "border-white/10"
+                } ${
+                  shelfView === "grid"
+                    ? "flex-col gap-3"
+                    : "flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <h4 className="min-w-0 truncate text-lg font-bold text-white">
-                    {item.name || "Untitled"}
-                  </h4>
-                  {isActive && (
-                    <span className="shrink-0 rounded-full bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
-                      Active
-                    </span>
-                  )}
+                <div className="flex min-w-0 flex-col gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="min-w-0 truncate text-lg font-bold text-white">
+                      {item.name || "Untitled"}
+                    </h4>
+                    {isActive && (
+                      <span className="shrink-0 rounded-full bg-sky-500 px-2.5 py-1 text-xs font-semibold text-white">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="truncate text-sm text-sky-300">
+                    {spec.subtitle(item)}
+                  </p>
+                  <p className="text-xs text-gray-500">{spec.stats(item)}</p>
                 </div>
-                <p className="truncate text-sm text-sky-300">
-                  {spec.subtitle(item)}
-                </p>
-                <p className="text-xs text-gray-500">{spec.stats(item)}</p>
-                <div className="mt-auto flex flex-wrap items-center gap-2 pt-1">
+                <div
+                  className={
+                    shelfView === "grid"
+                      ? "mt-auto flex flex-wrap items-center gap-2 pt-1"
+                      : "flex shrink-0 flex-wrap items-center gap-2 sm:justify-end"
+                  }
+                >
                   <button
                     type="button"
                     onClick={() => openItem(item.id, spec.viewTo)}
@@ -380,15 +475,18 @@ export const ShelfPage = ({ kind }) => {
         )}
       </div>
 
-      {/* New CV opens the shared template gallery first — a profession
-          preset seeds the sections that profession needs (all editable
-          afterwards); blank starts truly blank. */}
-      <TemplateGallery
-        open={templateOpen}
+      {/* New CV opens a small modal for the CV's title — the document
+          starts blank (the personal headline comes from the active
+          portfolio's hero) and grows on the /cv page. */}
+      <NewCvModal
+        open={newCvOpen}
         busy={busy}
         error={error}
-        onPick={createItem}
-        onClose={() => setTemplateOpen(false)}
+        titleValue={newCvName}
+        onTitleChange={setNewCvName}
+        existingTitles={items.map((item) => item.name)}
+        onCreate={createItem}
+        onClose={() => setNewCvOpen(false)}
       />
     </div>
   );

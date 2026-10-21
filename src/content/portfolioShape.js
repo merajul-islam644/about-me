@@ -6,6 +6,10 @@
 // spelled out here in scanned source, so any class stored through the UI is
 // guaranteed to be generated.
 
+import { CV_DESIGN_KEYS, DEFAULT_CV_DESIGN } from "../components/cv/cvDesign";
+
+export { CV_DESIGN_KEYS, DEFAULT_CV_DESIGN };
+
 // v2: version-1 rows carried the old single-user site's project list (51
 // identical filler rows plus one placeholder). The platform starts every
 // portfolio's projects empty — owners add their own (see normalizeContent).
@@ -27,6 +31,12 @@ export const ACCENT_CLASS_OPTIONS = [
   "font-semibold text-white",
 ];
 
+// CV visual designs — the per-CV key the /cv page and the PDF export both
+// render. The full vocabulary (layout × tone × accent, 100+ keys), the
+// legacy aliases and the class maps live in components/cv/cvDesign.js; the
+// whitelist re-exported above gates `normalizeCv` like every stored
+// class-bearing field.
+
 const isRichText = (value) =>
   Boolean(value) &&
   typeof value !== "string" &&
@@ -42,7 +52,9 @@ const richText = (value, fallback) =>
       }
     : { ...fallback };
 
-const newId = (prefix) =>
+// Fresh prefixed ids for anything the builder creates — exported so the
+// chatbot's CV Writer stamps sections and items with the same shape.
+export const newId = (prefix) =>
   typeof crypto !== "undefined" && crypto.randomUUID
     ? crypto.randomUUID()
     : `${prefix}-${Math.random().toString(16).slice(2)}`;
@@ -100,224 +112,14 @@ const normalizeCvItems = (type, raw) => {
     }));
 };
 
-// Profession presets for the CV editor — each seeds the sections that
-// profession actually needs. Every preset follows the one standard order
-// (experience → education → skills → projects & achievements →
-// certifications → languages), with the profession's own wording where it
-// helps. Optional sections (Projects, Certifications, References) are
-// seeded only where they earn their place, so no template opens with empty
-// boxes — and everything can be renamed, reordered, added or removed after.
-// The first preset is the exception on purpose: it ships with its whole CV
-// written, a filled example users overwrite with their own story.
-export const CV_PRESETS = [
-  {
-    key: "software-example",
-    label: "Software & IT — filled example",
-    // The one template that ships with its CV already written: every
-    // section carries realistic starter content to overwrite, so the
-    // picked CV reads as a complete document before a single edit.
-    sections: [
-      {
-        type: "text",
-        title: "Professional Summary",
-        items: [
-          {
-            text: "Frontend developer with 2+ years of hands-on experience building fast, accessible web applications with React and modern tooling. Comfortable owning a feature from design hand-off to production, and happiest when the codebase stays clean and the UI feels effortless.",
-          },
-        ],
-      },
-      {
-        type: "entry",
-        title: "Work Experience",
-        items: [
-          {
-            heading: "Software Engineering Intern",
-            sub: "SELISE Group — Dhaka, Bangladesh",
-            period: "Feb 2025 — Present",
-            details:
-              "• Build and maintain production React features for an enterprise platform\n• Collaborate with senior engineers on code review, testing and CI\n• Delivered shared design-system components now used by three teams",
-          },
-          {
-            heading: "Freelance Web Developer",
-            sub: "Self-employed — Remote",
-            period: "2023 — 2025",
-            details:
-              "• Shipped 6+ client websites with React, Next.js and Tailwind CSS\n• Raised average Lighthouse performance scores from 62 to 94\n• Handled everything client-facing: scoping, estimates and demos",
-          },
-        ],
-      },
-      {
-        type: "entry",
-        title: "Education",
-        items: [
-          {
-            heading: "BSc in Computer Science & Engineering",
-            sub: "University of Dhaka",
-            period: "2019 — 2023",
-            details:
-              "CGPA 3.74 / 4.00 · Final-year project: a real-time collaborative markdown editor",
-          },
-        ],
-      },
-      {
-        type: "list",
-        title: "Skills",
-        items: [
-          { text: "React.js" },
-          { text: "JavaScript (ES6+)" },
-          { text: "TypeScript" },
-          { text: "Tailwind CSS" },
-          { text: "Next.js" },
-          { text: "Git & GitHub" },
-        ],
-      },
-      {
-        type: "entry",
-        title: "Projects & Achievements",
-        items: [
-          {
-            heading: "Portfolio & CV Builder",
-            sub: "React · Vite · Tailwind CSS",
-            period: "2026",
-            details:
-              "A platform where anyone can build their own portfolio and a profession-tailored CV, then publish both.",
-          },
-          {
-            heading: "Task Manager",
-            sub: "React · Local Storage",
-            period: "2025",
-            details:
-              "A drag-and-drop task board with deadlines, labels and offline persistence.",
-          },
-        ],
-      },
-      {
-        type: "list",
-        title: "Languages",
-        items: [{ text: "Bengali — Native" }, { text: "English — Fluent" }],
-      },
-      {
-        type: "text",
-        title: "References",
-        items: [{ text: "Available upon request." }],
-      },
-    ],
-  },
-  {
-    key: "software",
-    label: "Software & IT",
-    sections: [
-      { type: "entry", title: "Work Experience" },
-      { type: "entry", title: "Education" },
-      { type: "list", title: "Skills" },
-      { type: "entry", title: "Projects" },
-      { type: "entry", title: "Certifications & Training" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "health",
-    label: "Healthcare",
-    sections: [
-      { type: "entry", title: "Clinical Experience" },
-      { type: "entry", title: "Education & Training" },
-      { type: "list", title: "Skills" },
-      { type: "entry", title: "Licenses & Certifications" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "teaching",
-    label: "Teaching & Education",
-    sections: [
-      { type: "entry", title: "Teaching Experience" },
-      { type: "entry", title: "Education" },
-      { type: "list", title: "Subjects & Skills" },
-      { type: "entry", title: "Certifications" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "business",
-    label: "Business & Finance",
-    sections: [
-      { type: "entry", title: "Work Experience" },
-      { type: "entry", title: "Education" },
-      { type: "list", title: "Skills" },
-      { type: "entry", title: "Projects & Achievements" },
-      { type: "entry", title: "Certifications & Training" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "creative",
-    label: "Design & Creative",
-    sections: [
-      { type: "entry", title: "Experience" },
-      { type: "entry", title: "Education" },
-      { type: "entry", title: "Selected Work" },
-      { type: "list", title: "Tools & Skills" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "student",
-    label: "Student / Fresh Graduate",
-    // Education leads; no Work Experience or Certifications — a fresh
-    // graduate's CV without the irrelevant empty boxes.
-    sections: [
-      { type: "entry", title: "Education" },
-      { type: "entry", title: "Internships & Volunteering" },
-      { type: "list", title: "Skills" },
-      { type: "entry", title: "Projects & Achievements" },
-      { type: "list", title: "Activities" },
-      { type: "list", title: "Languages" },
-    ],
-  },
-  {
-    key: "generic",
-    label: "General",
-    // The full standard skeleton — the one template that fits any job,
-    // References included with its conventional starter line.
-    sections: [
-      { type: "entry", title: "Work Experience" },
-      { type: "entry", title: "Education" },
-      { type: "list", title: "Skills" },
-      { type: "entry", title: "Projects & Achievements" },
-      { type: "entry", title: "Certifications & Training" },
-      { type: "list", title: "Languages" },
-      {
-        type: "text",
-        title: "References",
-        items: [{ text: "Available upon request." }],
-      },
-    ],
-  },
-];
-
-// Fresh sections from a preset: new ids, empty items — unless the preset
-// carries starter items (General's References begins "Available upon
-// request."; the filled example carries its whole CV). Shared by the
-// editor's profession picker and the My CV template gallery, so both grow
-// the same way.
-export const seedSections = (preset) =>
-  preset.sections.map((section) => ({
-    id: newId("cvs"),
-    type: section.type,
-    title: section.title,
-    page: section.page ?? "intro",
-    items: (section.items ?? []).map((item) => ({
-      id: newId("cvi"),
-      ...item,
-    })),
-  }));
-
-// The standard section set every professional CV draws from — the editor's
-// Add-section row offers these as one-click chips (titles the CV already
-// has are hidden), so the optional ones are easy to add when relevant.
-// Personal Information and Professional Summary are the CV headline's own
-// fields, so they are not sections here.
+// The standard section set every professional CV draws from — a brand-new
+// CV seeds all of them with empty items, so the document opens as a
+// fillable skeleton. The editor's Add-section row offers the same list as
+// one-click chips (titles the CV already has are hidden). Personal
+// Information is the CV headline's own fields (city, phone, email, link),
+// so it is not a section here.
 export const STANDARD_SECTIONS = [
+  { title: "Professional Summary", type: "text" },
   { title: "Work Experience", type: "entry" },
   { title: "Education", type: "entry" },
   { title: "Skills", type: "list" },
@@ -335,6 +137,7 @@ export const STANDARD_SECTIONS = [
 // optional link) under the headline — empty until the owner fills it in.
 export const defaultCvFor = (base) => ({
   greeting: "Curriculum Vitae",
+  design: DEFAULT_CV_DESIGN,
   title: base.hero.title,
   bio: {
     text: "The structured, hiring-ready view of my **experience, education and skills**.",
@@ -343,6 +146,27 @@ export const defaultCvFor = (base) => ({
   skills: base.hero.skills,
   contact: { location: "", phone: "", email: "", link: "" },
 });
+
+// A brand-new CV seeds the standard section skeleton — every standard
+// section present with empty items, so the document opens as a fillable
+// outline the owner grows on /cv — and takes its name from the New CV
+// modal; an empty one keeps the default "CV N". The personal headline
+// comes from the active portfolio's hero.
+export const createFreshCv = (content, name = "") => {
+  const list = content.cvs ?? [];
+  return {
+    id: newId("cv"),
+    name: name.trim() || `CV ${list.length + 1}`,
+    ...defaultCvFor({ hero: content.hero }),
+    sections: STANDARD_SECTIONS.map((section) => ({
+      id: newId("cvs"),
+      type: section.type,
+      title: section.title,
+      page: "intro",
+      items: [],
+    })),
+  };
+};
 
 // The CV a viewer should see: the one the owner marked active, falling back
 // to the first of their CVs — and to the legacy single-`cv` shape for content
@@ -443,6 +267,9 @@ export function normalizeCv(raw, fallback) {
   const contactField = (value, fb) =>
     typeof value === "string" && value.trim() !== "" ? value : fb;
   return {
+    design: CV_DESIGN_KEYS.includes(raw_.design)
+      ? raw_.design
+      : fallback.design || DEFAULT_CV_DESIGN,
     greeting:
       typeof raw_.greeting === "string" && raw_.greeting.trim() !== ""
         ? raw_.greeting

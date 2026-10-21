@@ -6,6 +6,7 @@ import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { getMenuForMode, getMode } from "../modes";
+import { NotificationBell } from "./NotificationBell";
 
 const Navbar = () => {
   const location = useLocation()
@@ -89,6 +90,10 @@ const Navbar = () => {
               </li>
             )}
           </ul>
+
+          {/* The bell sits just left of the account area — the avatar when
+              signed in, the Sign in button for visitors. */}
+          <NotificationBell />
 
           {/* Signed in: the avatar IS the account menu — name, email and
               sign out live in its dropdown instead of sitting on the bar. */}

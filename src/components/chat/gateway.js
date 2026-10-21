@@ -12,7 +12,7 @@
 // final text.
 
 export const PROVIDERS = [
-  { value: "anthropic", label: "Anthropic Compatible", defaultModel: "claude-sonnet-4-5" },
+  { value: "anthropic", label: "Anthropic Compatible", defaultModel: "claude-sonnet-5-5" },
   { value: "openai", label: "OpenAI Compatible", defaultModel: "gpt-4o-mini" },
 ];
 
@@ -20,8 +20,8 @@ export const providerMeta = (value) =>
   PROVIDERS.find((provider) => provider.value === value) || PROVIDERS[0];
 
 // The tools the model may call. A tool is only offered when its handler is
-// present (the CV needs a signed-in owner, the email needs a configured
-// address) — handlers live in the chatbot component.
+// present (the library counter needs a signed-in owner, the email needs a
+// configured address) — handlers live in the chatbot component.
 const TOOL_SCHEMAS = [
   {
     name: "download_cv",
@@ -40,6 +40,58 @@ const TOOL_SCHEMAS = [
     progress: "Copying the email…",
     description:
       "Copy the site owner's contact email to the visitor's clipboard. Call this when the visitor wants the email copied or ready to paste.",
+  },
+  {
+    name: "write_cv",
+    title: "CV Writer",
+    summary:
+      "Turns rough career details into a complete, profession-tailored CV saved straight into the owner's library.",
+    progress: "Writing the CV…",
+    description:
+      "Save a complete CV you composed from the details the member gave you. Work out their profession first, pick the sections that profession needs, then call this ONCE with the finished CV: 'title' is the CV's headline (e.g. 'Frontend Developer'), 'profession' names the field you detected, 'sections' is the ordered array — each { title, type: 'entry'|'list'|'text', items }. entry items carry { heading, sub, period, details }; list and text items carry { text }. Include only facts the member actually gave you.",
+    args: {
+      properties: {
+        title: {
+          type: "string",
+          description: "The CV's headline title, e.g. 'Frontend Developer'.",
+        },
+        profession: {
+          type: "string",
+          description: "The profession you detected, e.g. 'software engineer'.",
+        },
+        sections: {
+          type: "array",
+          description: "The CV's sections, in document order (5-8 of them).",
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Section title." },
+              type: {
+                type: "string",
+                description: "One of 'entry', 'list' or 'text'.",
+              },
+              items: {
+                type: "array",
+                description:
+                  "entry items: { heading, sub, period, details }; list/text items: { text }.",
+                items: {
+                  type: "object",
+                  properties: {
+                    heading: { type: "string" },
+                    sub: { type: "string" },
+                    period: { type: "string" },
+                    details: { type: "string" },
+                    text: { type: "string" },
+                  },
+                },
+              },
+            },
+            required: ["title", "type", "items"],
+          },
+        },
+      },
+      required: ["title", "sections"],
+    },
   },
   {
     name: "jump_to_page",
@@ -165,12 +217,16 @@ const systemPromptFor = (content) => {
 
   return [
     `You are Robi, the friendly robot assistant living in the corner of ${owner}'s portfolio site (${brand}).`,
-    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact and My CV (/cv/library). CV mode's menu is just My CV (/cv/library) — the shelf where new CVs are created and existing ones are opened. The whole CV document lives on one page at /cv; signed-in owners edit every section of it right there with the pencil icons.`,
-    `It is also a builder: signed-in owners get a portfolio editor (/edit), PDF export for the CV on the My CV shelf, and library shelves (/library, /cv/library) holding every saved version. Visitors only see the public showcase.`,
+    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact and My CV (/cv/library). CV mode's menu is just My CV (/cv/library) — the shelf whose New CV modal takes a title and creates a CV pre-seeded with the standard sections (Professional Summary, Work Experience, Education, Skills and so on — all empty, ready to fill). The whole CV document lives on one page at /cv; signed-in owners edit every section of it right there with the pencil icons.`,
+    `It is also a builder: signed-in owners get a portfolio editor (/edit), a Themes gallery that restyles the CV (with a print preview of the real PDF), and library shelves (/library, /cv/library) holding every saved version. Visitors browse the public showcase and get the same CV viewing, theming and PDF hand-outs — no sign-in needed for those.`,
     skills && `Live skills data: ${skills}.`,
     projects && `Live projects: ${projects}.`,
     email && `Contact email: ${email}.`,
     about && `About intro: ${about}`,
+    `CV WRITING — when someone shares raw career details (jobs, studies, skills, projects) and wants a CV, first work out their PROFESSION from the clues: tools, verbs, degrees, industries. React and APIs mean software engineer; wards and patient care mean nurse; classrooms and lesson plans mean teacher; ledgers and audits mean accountant. Then shape the CV the way that profession's recruiters expect: engineering and development put Projects & Achievements high; healthcare, aviation and finance lead with Certifications & Training; hospitality, sales and support highlight Languages; researchers put Education first. Name the profession inside the Professional Summary.`,
+    `CV section shapes: "entry" items carry heading (role/degree/title), sub (organization/place), period, details; "list" items are short texts (skills, languages); "text" items are paragraphs (summaries, references). Keep 5-8 sections with concrete, achievement-flavored wording. Use ONLY the facts you were given — reword freely, but never invent employers, dates, numbers or schools.`,
+    `When the member asks for a CV and you have the write_cv tool, compose the full CV and call write_cv ONCE with { title, profession, sections } instead of printing it, then confirm what was saved (it opens at /cv). Without write_cv — a visitor, or the skill uninstalled — write the CV as neat plain text in your reply and mention that signing in lets Robi save it into their library automatically.`,
+    `BE PROACTIVE with CV talk: whenever someone mentions a CV — writing one, improving it, its design, sections, printing or downloading — answer briefly, then push the conversation forward by offering 2-3 concrete next steps they can pick from. Draw them from what this person can actually do: signed-in members can have you write and save a whole CV (write_cv), restyle it from the Themes gallery on /cv, or get the PDF (download_cv); visitors can get a plain-text CV, the PDF, and a nudge that signing in unlocks auto-saving into their library. Vary the suggestions instead of repeating one, and on non-CV topics stay a normal assistant — don't push.`,
     `Rules: answer in the language the visitor writes (English, Bengali or Banglish). Keep replies short — under 80 words, plain text, no markdown. Be warm and a little playful; you are a robot. When a tool call produced a result, confirm it in your own words. If asked to do something the site cannot do, say what you CAN do instead.`,
   ]
     .filter(Boolean)
@@ -310,7 +366,9 @@ export const callGateway = async (
     onStatus({ kind: "thinking" });
     let url;
     let headers;
-    const body = { max_tokens: 400, stream: true };
+    // Composing a whole CV through the write_cv tool call is a big JSON —
+    // rounds carrying that tool get room to finish it; plain chat stays lean.
+    const body = { max_tokens: handlers?.write_cv ? 2000 : 400, stream: true };
     if (provider === "openai") {
       url = `${base}/v1/chat/completions`;
       headers = {

@@ -1,4 +1,5 @@
 import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { cvDesignTokens } from "./cvDesign";
 
 // Fresh ids for items added while a section is being edited inline.
 const newItemId = () =>
@@ -6,13 +7,11 @@ const newItemId = () =>
     ? crypto.randomUUID()
     : `cvi-${Math.random().toString(16).slice(2)}`;
 
-const editorField =
-  "w-full rounded-lg border border-white/10 bg-gray-800 px-3 py-2 text-sm text-gray-100 placeholder:text-gray-500 focus:border-sky-400 focus:outline-none";
-
 // The inline editor that takes over a section card's body on /cv — the same
 // pencil pattern as the other pages: the title and every item become plain
-// fields, Save writes the section back through the caller.
-const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
+// fields, Save writes the section back through the caller. Colors come from
+// the design's token map, so the editor stays readable on light designs too.
+const SectionEditor = ({ section, onChange, onSave, onCancel, error, t }) => {
   const setItems = (items) => onChange({ ...section, items });
 
   const updateItem = (itemId, next) =>
@@ -46,14 +45,14 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
         placeholder="Section title"
         aria-label="Section title"
         autoFocus
-        className={`${editorField} font-semibold`}
+        className={`${t.editorField} font-semibold`}
       />
 
       {section.type === "entry" &&
         section.items.map((item) => (
           <div
             key={item.id}
-            className="flex flex-col gap-2 rounded-xl border border-white/10 bg-gray-800/60 p-3"
+            className={t.editorEntryCard}
           >
             <div className="grid gap-2 sm:grid-cols-2">
               <input
@@ -64,7 +63,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
                 }
                 placeholder="Role / Degree / Title"
                 aria-label="Role or title"
-                className={editorField}
+                className={t.editorField}
               />
               <input
                 type="text"
@@ -74,7 +73,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
                 }
                 placeholder="Organization / Place"
                 aria-label="Organization or place"
-                className={editorField}
+                className={t.editorField}
               />
             </div>
             <input
@@ -85,7 +84,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
               }
               placeholder="2024 — Present"
               aria-label="Period"
-              className={editorField}
+              className={t.editorField}
             />
             <textarea
               rows={3}
@@ -95,12 +94,12 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
               }
               placeholder="What you did, tools used, results…"
               aria-label="Details"
-              className={`${editorField} resize-none leading-relaxed`}
+              className={`${t.editorField} resize-none leading-relaxed`}
             />
             <button
               type="button"
               onClick={() => removeItem(item.id)}
-              className="inline-flex cursor-pointer items-center gap-1.5 self-start rounded-lg px-2 py-1 text-xs text-red-400 transition-colors hover:bg-white/5"
+              className={t.editorRemovePlain}
             >
               <Trash2 className="h-3.5 w-3.5" /> Remove entry
             </button>
@@ -118,14 +117,14 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
               }
               placeholder="e.g. Bengali — Native"
               aria-label="Item"
-              className={editorField}
+              className={t.editorField}
             />
             <button
               type="button"
               onClick={() => removeItem(item.id)}
               title="Remove item"
               aria-label="Remove item"
-              className="shrink-0 cursor-pointer rounded-lg border border-white/10 p-2 text-red-400 transition-colors hover:bg-white/5"
+              className={t.editorRemoveBoxed}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -143,14 +142,14 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
               }
               placeholder="Write…"
               aria-label="Paragraph"
-              className={`${editorField} resize-none leading-relaxed`}
+              className={`${t.editorField} resize-none leading-relaxed`}
             />
             <button
               type="button"
               onClick={() => removeItem(item.id)}
               title="Remove paragraph"
               aria-label="Remove paragraph"
-              className="shrink-0 cursor-pointer rounded-lg border border-white/10 p-2 text-red-400 transition-colors hover:bg-white/5"
+              className={t.editorRemoveBoxed}
             >
               <Trash2 className="h-4 w-4" />
             </button>
@@ -160,7 +159,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
       <button
         type="button"
         onClick={addItem}
-        className="inline-flex cursor-pointer items-center gap-1.5 self-start rounded-full border border-dashed border-white/20 px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300"
+        className={t.editorAddItem}
       >
         <Plus className="h-3.5 w-3.5" />{" "}
         {section.type === "entry" ? "Add entry" : "Add item"}
@@ -177,7 +176,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-4 py-1.5 text-sm font-semibold text-gray-300 transition-colors hover:border-sky-400/40 hover:text-sky-300"
+          className={t.editorCancel}
         >
           <X className="w-4 h-4" /> Cancel
         </button>
@@ -194,55 +193,50 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error }) => {
   );
 };
 
-const EntryItem = ({ item }) => (
-  <article className="rounded-xl border border-white/5 bg-gray-800/60 p-4">
+const EntryItem = ({ item, t }) => (
+  <article className={t.entryCard}>
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-      <h4 className="font-semibold text-white">{item.heading}</h4>
+      <h4 className={t.entryHeading}>{item.heading}</h4>
       {item.period && (
-        <span className="text-xs font-medium tracking-wide text-sky-300/80">
-          {item.period}
-        </span>
+        <span className={t.entryPeriod}>{item.period}</span>
       )}
     </div>
-    {item.sub && <p className="mt-0.5 text-sm text-sky-300">{item.sub}</p>}
-    {item.details && (
-      <p className="mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-300">
-        {item.details}
-      </p>
-    )}
+    {item.sub && <p className={t.entrySub}>{item.sub}</p>}
+    {item.details && <p className={t.entryDetails}>{item.details}</p>}
   </article>
 );
 
 // The CV document body — renders under the hero on /cv. Generic on purpose:
 // every profession's sections flow through the same three shapes (entry /
 // list / text), and the section title carries the profession's own wording.
+// Colors and card shapes come from the CV's design (`classic` / `paper` /
+// `sidebar`) through the token map in cvDesign.js.
 //
 // `edit` turns on the owner's inline editing: a pencil on every card, and
 // while one is active its card renders the SectionEditor fed by the caller's
-// draft. Absent (visitors, the editor's preview), the document is read-only.
+// draft. Absent (visitors, the previews), the document is read-only.
 export const CvDocument = ({
   sections,
   header = null,
   edit = null,
+  design = "classic",
 }) => {
+  const t = cvDesignTokens(design);
   if (!sections?.length) return null;
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-5 px-6 pb-16">
+    <div className={t.docWrap}>
       {header}
       {sections.map((section) => {
         const editingThis = edit != null && edit.activeId === section.id;
         return (
-          <section
-            key={section.id}
-            className="relative rounded-2xl border border-white/10 bg-gray-900/60 p-5 md:p-6"
-          >
+          <section key={section.id} className={t.sectionCard}>
             {edit && !editingThis && (
               <button
                 type="button"
                 onClick={() => edit.onStart(section)}
                 title="Edit this section"
                 aria-label={`Edit ${section.title}`}
-                className="absolute right-3 top-3 rounded-full p-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+                className={t.editPencil}
               >
                 <Pencil className="w-4 h-4" />
               </button>
@@ -254,24 +248,20 @@ export const CvDocument = ({
                 onSave={edit.onSave}
                 onCancel={edit.onCancel}
                 error={edit.error}
+                t={t}
               />
             ) : (
               <>
-                <h3 className="pr-8 text-lg font-bold text-sky-300">
-                  {section.title}
-                </h3>
+                <h3 className={t.sectionTitle}>{section.title}</h3>
                 <div className="mt-3 flex flex-col gap-3">
                   {section.type === "entry" &&
                     section.items.map((item) => (
-                      <EntryItem key={item.id} item={item} />
+                      <EntryItem key={item.id} item={item} t={t} />
                     ))}
                   {section.type === "list" && (
                     <ul className="flex flex-wrap gap-2">
                       {section.items.map((item) => (
-                        <li
-                          key={item.id}
-                          className="rounded-full border border-white/10 bg-gray-800 px-3 py-1 text-sm text-gray-200"
-                        >
+                        <li key={item.id} className={t.listPill}>
                           {item.text}
                         </li>
                       ))}
@@ -279,17 +269,12 @@ export const CvDocument = ({
                   )}
                   {section.type === "text" &&
                     section.items.map((item) => (
-                      <p
-                        key={item.id}
-                        className="text-sm leading-relaxed whitespace-pre-line text-gray-300"
-                      >
+                      <p key={item.id} className={t.bodyText}>
                         {item.text}
                       </p>
                     ))}
                   {section.items.length === 0 && (
-                    <p className="text-sm italic text-gray-500">
-                      Nothing here yet.
-                    </p>
+                    <p className={t.emptyText}>Nothing here yet.</p>
                   )}
                 </div>
               </>

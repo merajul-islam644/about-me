@@ -11,6 +11,7 @@ import Chatbot from "./components/Chatbot";
 import EditPage from "./components/EditPage";
 import { CvShelf, PortfolioShelf } from "./components/ShelfPage";
 import JobAlertsPage from "./components/JobAlertsPage";
+import ProfilePage from "./components/ProfilePage";
 import { RequireAuth, RedirectIfAuthenticated } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
@@ -87,6 +88,18 @@ const App = () => {
           }
         >
           <Route index element={<JobAlertsPage />} />
+        </Route>
+        {/* Profile — the signed-in account page from the avatar dropdown.
+            Same gating as the shelves. */}
+        <Route
+          path="/profile"
+          element={
+            <RequireAuth>
+              <PortfolioGate />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<ProfilePage />} />
         </Route>
         <Route
           path="/login"

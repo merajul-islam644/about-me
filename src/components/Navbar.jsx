@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, LogOut, User } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
@@ -82,21 +82,22 @@ const Navbar = () => {
                 </Link>
               </li>
             ))}
-            {status !== "authenticated" && (
-              <li>
-                <Link
-                  to="/login"
-                  className="cursor-pointer px-3 py-1.5 rounded bg-sky-500 hover:bg-sky-400 text-white text-sm font-semibold transition-colors"
-                >
-                  Sign in
-                </Link>
-              </li>
-            )}
           </ul>
 
           {/* The bell sits just left of the account area — the avatar when
               signed in, the Sign in button for visitors. */}
           <NotificationBell />
+
+          {/* Visitors: Sign in sits right of the bell, mirroring where the
+              avatar hangs for signed-in users. */}
+          {status !== "authenticated" && (
+            <Link
+              to="/login"
+              className="cursor-pointer px-3 py-1.5 rounded bg-sky-500 hover:bg-sky-400 text-white text-sm font-semibold transition-colors"
+            >
+              Sign in
+            </Link>
+          )}
 
           {/* Signed in: the avatar IS the account menu — name, email and
               sign out live in its dropdown instead of sitting on the bar. */}
@@ -130,6 +131,13 @@ const Navbar = () => {
                     )}
                   </div>
                   <div className="my-1 h-px bg-white/10" />
+                  <Link
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm text-gray-200 transition-colors hover:bg-white/5 hover:text-sky-300"
+                  >
+                    <User className="h-4 w-4" /> Profile
+                  </Link>
                   <button
                     type="button"
                     onClick={handleLogout}

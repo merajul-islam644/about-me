@@ -12,7 +12,8 @@ import EditPage from "./components/EditPage";
 import { CvShelf, PortfolioShelf } from "./components/ShelfPage";
 import JobAlertsPage from "./components/JobAlertsPage";
 import ProfilePage from "./components/ProfilePage";
-import { RequireAuth, RedirectIfAuthenticated } from "./auth/guards";
+import AccessControlPage from "./components/AccessControlPage";
+import { RequireAuth, RedirectIfAuthenticated, RequireEditor } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
 const App = () => {
@@ -50,7 +51,14 @@ const App = () => {
             </RequireAuth>
           }
         >
-          <Route path="/edit" element={<EditPage />} />
+          <Route
+            path="/edit"
+            element={
+              <RequireEditor>
+                <EditPage />
+              </RequireEditor>
+            }
+          />
         </Route>
         {/* The two shelves — every saved portfolio (/library) and every
             saved CV (/cv/library) in one list each, openable (view or edit;
@@ -100,6 +108,19 @@ const App = () => {
           }
         >
           <Route index element={<ProfilePage />} />
+        </Route>
+        {/* Access control — invite users and manage roles & permissions
+            through the IAM SDK with the signed-in admin's own authority.
+            Same gating as the profile. */}
+        <Route
+          path="/profile/access"
+          element={
+            <RequireAuth>
+              <PortfolioGate />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<AccessControlPage />} />
         </Route>
         <Route
           path="/login"

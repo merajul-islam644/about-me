@@ -7,6 +7,7 @@ import {
   FileText,
   Loader2,
   Pencil,
+  ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
@@ -27,8 +28,7 @@ const DetailRow = ({ label, children }) => (
 );
 
 const ProfilePage = () => {
-  const { status, profile } = useAuth();
-  const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
+  const { status, profile, canEdit } = useAuth();  const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
     profile?.userId,
     status !== "unauthenticated" && !profile,
   );
@@ -76,27 +76,32 @@ const ProfilePage = () => {
                 picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""
               } ${uploading ? "opacity-50" : ""}`}
             />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={uploading}
-              title="Change profile picture"
-              aria-label="Change profile picture"
-              className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-4 border-gray-800 bg-sky-500 text-white shadow-lg transition hover:bg-sky-400 disabled:cursor-wait"
-            >
-              {uploading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Camera className="h-4 w-4" />
-              )}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleUpload}
-              className="hidden"
-            />
+            {/* Upload is an editor affordance — viewers just have a face. */}
+            {canEdit && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  title="Change profile picture"
+                  aria-label="Change profile picture"
+                  className="absolute bottom-0 right-0 flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-4 border-gray-800 bg-sky-500 text-white shadow-lg transition hover:bg-sky-400 disabled:cursor-wait"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Camera className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUpload}
+                  className="hidden"
+                />
+              </>
+            )}
           </div>
           <div className="min-w-0 text-center sm:text-left">
             <h3 className="truncate text-2xl font-bold text-white">{displayName}</h3>
@@ -139,42 +144,55 @@ const ProfilePage = () => {
           </dl>
         </section>
 
-        {/* The owner's destinations, one click away. */}
-        <section className="rounded-2xl border border-white/10 bg-gray-800 p-6 shadow-xl">
-          <h3 className="text-lg font-bold text-white">Where to next</h3>
-          <div className="mt-4 flex flex-col gap-2">
-            <Link to="/cv/library" className={linkRowClass}>
-              <FileText className="h-4 w-4 shrink-0 text-sky-400" />
-              <span className="min-w-0">
-                My CV
-                <span className="ml-2 font-normal text-gray-500">
-                  every saved resume in one shelf
+        {/* The owner's destinations — editors only. Viewers are here to
+            read the showcase, not to navigate the app. */}
+        {canEdit && (
+          <section className="rounded-2xl border border-white/10 bg-gray-800 p-6 shadow-xl">
+            <h3 className="text-lg font-bold text-white">Where to next</h3>
+            <div className="mt-4 flex flex-col gap-2">
+              <Link to="/profile/access" className={linkRowClass}>
+                <ShieldCheck className="h-4 w-4 shrink-0 text-sky-400" />
+                <span className="min-w-0">
+                  Team &amp; access
+                  <span className="ml-2 font-normal text-gray-500">
+                    invite users, shape roles &amp; permissions
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
-            </Link>
-            <Link to="/cv/jobs" className={linkRowClass}>
-              <Bell className="h-4 w-4 shrink-0 text-sky-400" />
-              <span className="min-w-0">
-                Job Alerts
-                <span className="ml-2 font-normal text-gray-500">
-                  posts matching your keywords
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
+              </Link>
+              <Link to="/cv/library" className={linkRowClass}>
+                <FileText className="h-4 w-4 shrink-0 text-sky-400" />
+                <span className="min-w-0">
+                  My CV
+                  <span className="ml-2 font-normal text-gray-500">
+                    every saved resume in one shelf
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
-            </Link>
-            <Link to="/edit" className={linkRowClass}>
-              <Pencil className="h-4 w-4 shrink-0 text-sky-400" />
-              <span className="min-w-0">
-                Edit portfolio
-                <span className="ml-2 font-normal text-gray-500">
-                  update the public showcase
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
+              </Link>
+              <Link to="/cv/jobs" className={linkRowClass}>
+                <Bell className="h-4 w-4 shrink-0 text-sky-400" />
+                <span className="min-w-0">
+                  Job Alerts
+                  <span className="ml-2 font-normal text-gray-500">
+                    posts matching your keywords
+                  </span>
                 </span>
-              </span>
-              <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
-            </Link>
-          </div>
-        </section>
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
+              </Link>
+              <Link to="/edit" className={linkRowClass}>
+                <Pencil className="h-4 w-4 shrink-0 text-sky-400" />
+                <span className="min-w-0">
+                  Edit portfolio
+                  <span className="ml-2 font-normal text-gray-500">
+                    update the public showcase
+                  </span>
+                </span>
+                <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-gray-500" />
+              </Link>
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

@@ -38,6 +38,30 @@ export const RedirectIfAuthenticated = ({ children }) => {
   return children;
 };
 
+// Editor-only pages (/edit): signed-in users without clouduser are viewers —
+// they get bounced home instead of an editor that could never save.
+export const RequireEditor = ({ children }) => {
+  const { status, canEdit } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (status === "unauthenticated") {
+      const returnTo = encodeURIComponent(location.pathname + location.search);
+      navigate(`/login?returnTo=${returnTo}`, { replace: true });
+      return;
+    }
+    if (status === "authenticated" && !canEdit) {
+      navigate("/", { replace: true });
+    }
+  }, [status, canEdit, location, navigate]);
+
+  if (status !== "authenticated" || !canEdit) {
+    return <LoadingScreen />;
+  }
+  return children;
+};
+
 export const LoadingScreen = () => (
   <div className="min-h-screen flex items-center justify-center bg-gray-900">
     <p className="text-gray-400 animate-pulse">Loading…</p>

@@ -6,7 +6,7 @@ import {
   startLogin,
 } from "../lib/blocks/auth";
 import { blocksClient } from "../lib/blocks/client";
-import { AuthContext } from "./auth-context";
+import { AuthContext, rolesToSlugs } from "./auth-context";
 
 // Backup interval only — the primary signals are the mount refresh and the
 // visibility-change refresh below.
@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
                 email: user.email,
                 firstName: user.firstName,
                 lastName: user.lastName,
-                roles: Array.isArray(user.roles) ? user.roles : [],
+                roles: rolesToSlugs(user.roles),
               }
             : null
         );
@@ -88,7 +88,15 @@ export const AuthProvider = ({ children }) => {
   }, [refresh]);
 
   const value = useMemo(
-    () => ({ status, claims, profile, login, logout, refresh }),
+    () => ({
+      status,
+      claims,
+      profile,
+      canEdit: profile?.roles?.includes("clouduser") ?? false,
+      login,
+      logout,
+      refresh,
+    }),
     [status, claims, profile, login, logout, refresh]
   );
 

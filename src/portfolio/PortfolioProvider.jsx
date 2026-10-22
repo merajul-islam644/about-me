@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "../auth/auth-context";
 import {
   MERAJ_EMAIL,
+  MERAJ_USER_ID,
   merajPortfolio,
   visitorPortfolio,
 } from "../content/merajPortfolio";
@@ -22,7 +23,7 @@ const IDLE = {
 };
 
 export const PortfolioProvider = ({ children }) => {
-  const { status: authStatus, profile } = useAuth();
+  const { status: authStatus, profile, canEdit } = useAuth();
   const [state, setState] = useState(IDLE);
   const [saving, setSaving] = useState(false);
 
@@ -100,13 +101,22 @@ export const PortfolioProvider = ({ children }) => {
     []
   );
 
-  useEffect(() => {
-    if (authStatus === "authenticated" && profile?.userId) {
-      load(profile);
-    } else if (authStatus === "unauthenticated") {
-      // Visitors browse the public showcase read-only: no row is fetched and
-      // nothing can be saved (itemId stays null). Signing in swaps in the
-      // user's own content via the branch above.
+  // Invited viewers (signed-in without clouduser) browse the OWNER's live
+  // row read-only — never their own starter content, never a save target.
+  // itemId stays null so save() is structurally impossible for them.
+  const loadOwnerView = useCallback(async () => {
+    setState((prev) => ({ ...prev, status: "loading", error: null }));
+    try {
+      const row = await getPortfolioRow(MERAJ_USER_ID);
+      if (!row) throw new Error("owner row missing");
+      setState({
+        status: "ready",
+        content: normalizeContent(JSON.parse(row.Content)),
+        itemId: null,
+        error: null,
+      });
+    } catch {
+      // Never blank the site for a viewer — fall back to the public snapshot.
       setState({
         status: "ready",
         content: normalizeContent(visitorPortfolio),
@@ -114,7 +124,25 @@ export const PortfolioProvider = ({ children }) => {
         error: null,
       });
     }
-  }, [authStatus, profile, load]);
+  }, []);
+
+  useEffect(() => {
+    if (authStatus === "authenticated" && profile?.userId && canEdit) {
+      load(profile);
+    } else if (authStatus === "authenticated") {
+      loadOwnerView();
+    } else if (authStatus === "unauthenticated") {
+      // Visitors browse the public showcase read-only: no row is fetched and
+      // nothing can be saved (itemId stays null). Signing in swaps in the
+      // owner's row for viewers, the user's own for editors.
+      setState({
+        status: "ready",
+        content: normalizeContent(visitorPortfolio),
+        itemId: null,
+        error: null,
+      });
+    }
+  }, [authStatus, profile, canEdit, load, loadOwnerView]);
 
   const save = useCallback(
     async (nextContent) => {
@@ -153,9 +181,12 @@ export const PortfolioProvider = ({ children }) => {
   );
 
   const refresh = useCallback(() => {
-    if (profile?.userId) return load(profile, { isRetry: true });
+    if (authStatus === "authenticated" && profile?.userId && canEdit) {
+      return load(profile, { isRetry: true });
+    }
+    if (authStatus === "authenticated") return loadOwnerView();
     return Promise.resolve();
-  }, [profile, load]);
+  }, [authStatus, profile, canEdit, load, loadOwnerView]);
 
   const value = useMemo(
     () => ({

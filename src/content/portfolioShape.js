@@ -76,7 +76,10 @@ const CV_PAGE_KEYS = CV_PAGES.map((page) => page.key);
 // "entry" = Experience/Education/Certifications/Projects (heading + place +
 // period + details), "list" = Skills/Languages/Activities, "text" = free
 // paragraphs. The section TITLE carries the profession's own wording.
-const CV_SECTION_TYPES = ["entry", "list", "text"];
+// "headline" is the CV's greeting/title/contact/bio/skills block — it has
+// no items of its own; its entry is a position marker so the owner can drag
+// it among the real sections (or hide it) like any other card.
+const CV_SECTION_TYPES = ["entry", "list", "text", "headline"];
 
 const CV_DEFAULT_SECTION_TITLE = {
   entry: "Details",
@@ -85,6 +88,7 @@ const CV_DEFAULT_SECTION_TITLE = {
 };
 
 const normalizeCvItems = (type, raw) => {
+  if (type === "headline") return [];
   if (!Array.isArray(raw)) return [];
   if (type === "entry") {
     return raw
@@ -240,7 +244,7 @@ export function normalizeCv(raw, fallback) {
             : fallback.skills[0]?.color ?? SKILL_COLOR_OPTIONS[0],
         }))
     : fallback.skills;
-  const sections = Array.isArray(raw_.sections)
+  let sections = Array.isArray(raw_.sections)
     ? raw_.sections
         .filter((s) => s && typeof s === "object")
         .map((s) => {
@@ -254,11 +258,43 @@ export function normalizeCv(raw, fallback) {
                 ? s.title
                 : CV_DEFAULT_SECTION_TITLE[type],
             items: normalizeCvItems(type, s.items),
+            hidden: s.hidden === true,
+            // Optional "spreadsheet" presentation for entry sections —
+            // "grid" renders the rows as a table; anything else is cards.
+            layout:
+              s.layout === "grid" || s.layout === "cards" ? s.layout : undefined,
           };
         })
     : Array.isArray(fallback.sections)
       ? fallback.sections
       : [];
+  // Every CV carries exactly one headline marker (the greeting/title/
+  // contact/bio/skills card). Rows saved before it existed get one seeded
+  // at the top on first read — visible, so nothing changes for them until
+  // the owner drags or hides it.
+  if (!sections.some((section) => section.type === "headline")) {
+    sections = [
+      {
+        id: newId("cvs"),
+        type: "headline",
+        page: "intro",
+        title: "Headline",
+        items: [],
+        hidden: false,
+      },
+      ...sections,
+    ];
+  }
+  // Teaching by example: entry sections named Education read as a table by
+  // default, so the page shows what a grid layout can do. An explicit
+  // Cards/Table pick in the editor always wins over this seed.
+  sections = sections.map((section) =>
+    !section.layout &&
+    section.type === "entry" &&
+    /education/i.test(section.title || "")
+      ? { ...section, layout: "grid" }
+      : section
+  );
   // Personal information strip — plain strings; anything unfilled falls
   // back to the seed's (empty) value, never breaks on old rows.
   const contactRaw = raw_.contact ?? {};

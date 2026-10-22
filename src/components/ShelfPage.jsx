@@ -13,6 +13,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
+import { useAuth } from "../auth/auth-context";
 import { pushNotification } from "../portfolio/notifications";
 import {
   blankPortfolioFields,
@@ -170,6 +171,7 @@ const SHELF_KINDS = {
 export const ShelfPage = ({ kind }) => {
   const spec = SHELF_KINDS[kind] ?? SHELF_KINDS.portfolio;
   const { content, save } = usePortfolio();
+  const { canEdit } = useAuth();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -356,7 +358,7 @@ export const ShelfPage = ({ kind }) => {
           <h3 className="text-lg font-bold text-white">{spec.title}</h3>
           {/* The one "New" rule: an empty shelf carries its button in the
               empty state below, a stocked one here — never both at once. */}
-          {items.length > 0 && (
+          {items.length > 0 && canEdit && (
             <div className="flex flex-wrap items-center gap-2">
               {/* The layout switch sits left of the New button. */}
               {kind === "cv" && (
@@ -424,7 +426,7 @@ export const ShelfPage = ({ kind }) => {
                   >
                     <Eye className="h-3.5 w-3.5" /> View
                   </button>
-                  {spec.editTo && (
+                  {canEdit && spec.editTo && (
                     <button
                       type="button"
                       onClick={() => openItem(item.id, spec.editTo)}
@@ -433,28 +435,32 @@ export const ShelfPage = ({ kind }) => {
                       <Pencil className="h-3.5 w-3.5" /> Edit
                     </button>
                   )}
-                  <button
-                    type="button"
-                    onClick={() => renameItem(item)}
-                    className={cardActionClass}
-                  >
-                    <PenLine className="h-3.5 w-3.5" /> Rename
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => deleteItem(item)}
-                    disabled={
-                      (items.length <= 1 && !spec.canDeleteLast) || busy
-                    }
-                    title={
-                      items.length <= 1 && !spec.canDeleteLast
-                        ? spec.lastGuard
-                        : `Delete “${item.name ?? "this"}”`
-                    }
-                    className={deleteActionClass}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> Delete
-                  </button>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => renameItem(item)}
+                      className={cardActionClass}
+                    >
+                      <PenLine className="h-3.5 w-3.5" /> Rename
+                    </button>
+                  )}
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => deleteItem(item)}
+                      disabled={
+                        (items.length <= 1 && !spec.canDeleteLast) || busy
+                      }
+                      title={
+                        items.length <= 1 && !spec.canDeleteLast
+                          ? spec.lastGuard
+                          : `Delete “${item.name ?? "this"}”`
+                      }
+                      className={deleteActionClass}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </button>
+                  )}
                 </div>
               </article>
             );
@@ -465,12 +471,14 @@ export const ShelfPage = ({ kind }) => {
         {items.length === 0 && (
           <div className="-mt-3 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/15 p-10 text-center">
             <p className="text-sm text-gray-400">{spec.emptyText}</p>
-            <NewButton
-              busy={busy}
-              kind={kind}
-              label={spec.newLabel}
-              onClick={handleNew}
-            />
+            {canEdit && (
+              <NewButton
+                busy={busy}
+                kind={kind}
+                label={spec.newLabel}
+                onClick={handleNew}
+              />
+            )}
           </div>
         )}
       </div>

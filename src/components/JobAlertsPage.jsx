@@ -46,7 +46,7 @@ const actionPillClass =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-200 transition-colors hover:border-sky-400/40 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-40";
 
 const JobAlertsPage = () => {
-  const { profile } = useAuth();
+  const { profile, canEdit } = useAuth();
   const userId = profile?.userId;
 
   const [pref, setPref] = useState(null);
@@ -244,6 +244,7 @@ const JobAlertsPage = () => {
               value={keywords}
               onChange={(event) => setKeywords(event.target.value)}
               rows={2}
+              readOnly={!canEdit}
               placeholder="frontend, react, remote, dhaka"
               className={textareaClass}
             />
@@ -252,27 +253,29 @@ const JobAlertsPage = () => {
               (case-insensitive) matches. Sources stay empty for now; per-source
               switches come later.
             </p>
-            <div className="flex flex-wrap items-center gap-3">
-              {/* The gradient pill — the same primary CTA the contact page
-                  uses for its one big action. */}
-              <button
-                type="submit"
-                disabled={saving || !pref}
-                className="inline-flex cursor-pointer items-center gap-2 self-start rounded-full bg-linear-to-r from-sky-500 to-pink-500 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
-              >
-                {saving ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4" />
+            {canEdit && (
+              <div className="flex flex-wrap items-center gap-3">
+                {/* The gradient pill — the same primary CTA the contact page
+                    uses for its one big action. */}
+                <button
+                  type="submit"
+                  disabled={saving || !pref}
+                  className="inline-flex cursor-pointer items-center gap-2 self-start rounded-full bg-linear-to-r from-sky-500 to-pink-500 px-5 py-2 text-sm font-bold text-white shadow-lg shadow-sky-500/25 transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:scale-100"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save keywords
+                </button>
+                {notice && (
+                  <span className="text-sm text-green-400" role="status">
+                    {notice}
+                  </span>
                 )}
-                Save keywords
-              </button>
-              {notice && (
-                <span className="text-sm text-green-400" role="status">
-                  {notice}
-                </span>
-              )}
-            </div>
+              </div>
+            )}
           </form>
         </section>
 

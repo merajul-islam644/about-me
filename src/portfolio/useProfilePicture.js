@@ -75,14 +75,27 @@ export const useProfilePicture = (userId, authPending = false) => {
         .then((nextUrl) => {
           if (cancelled) return;
           setPending(false);
-          if (!nextUrl) return; // no upload — callers keep the cartoon
+          if (!nextUrl) {
+            // Not an error for the UI, but knowing "the listing had no such
+            // file" vs "storage refused" is the difference between causes —
+            // say it out loud in the console.
+            console.info(`[profile-picture] no file on record for ${userId}`);
+            return; // no upload — callers keep the cartoon
+          }
           urlMemory.set(key, { url: nextUrl, at: Date.now() });
           setUrl(nextUrl);
         })
-        .catch(() => {
-          // Keep the current picture — storage being down shouldn't blank the page.
-          if (cancelled) return;
+        .catch((lookupError) => {
+          // Keep the current picture — storage being down shouldn't blank
+          // the page. But DO clear the pending window: a refused lookup
+          // (403 on the folder, storage down) must fall back to the
+          // cartoon avatar, not blur the placeholder forever. And log it:
+          // a silent picture failure cost a debugging session once already.
           setPending(false);
+          console.warn(
+            `[profile-picture] lookup failed for ${userId}:`,
+            lookupError?.body?.message || lookupError?.message || lookupError,
+          );
         });
     }
 

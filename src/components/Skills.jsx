@@ -11,7 +11,7 @@ import { ModeTabs } from "./ModeTabs";
 
 const Skills = () => {
   const { content, save } = usePortfolio();
-  const { status } = useAuth();
+  const { status, canEdit } = useAuth();
 
   // Inline editing, About-style: the pencil turns the badge wall itself
   // into a textarea — one skill per line — and save writes the list back
@@ -69,9 +69,9 @@ const Skills = () => {
         <ModeTabs />
       </div>
       <div className="relative flex-1 flex flex-col justify-center items-center bg-gray-900 px-6 pb-8">
-        {/* The edit affordance — top-right of the section. Owners only;
-            visitors see the pure showcase. */}
-        {authed && !editing && (
+        {/* The edit affordance — top-right of the section. Editors only;
+            visitors and viewers see the pure showcase. */}
+        {authed && canEdit && !editing && (
           <button
             type="button"
             onClick={startEdit}

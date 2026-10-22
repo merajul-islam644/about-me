@@ -155,6 +155,12 @@ export function buildCvPdf(content, pictureDataUrl, designOverride = null) {
   };
 
   const cv = getActiveCv(content) ?? {};
+  // The headline card's hidden flag — a hidden headline skips the print
+  // headline text on the side/badge layouts (the photo stays; it is not
+  // part of the card).
+  const headlineHidden = (cv.sections ?? []).some(
+    (section) => section.type === "headline" && section.hidden
+  );
   const brand = content?.brand || "Curriculum Vitae";
   // Chips print in the skill's own color, like the web chips — this hex map
   // mirrors SKILL_COLOR_OPTIONS (whose classes Tailwind owns).
@@ -318,8 +324,6 @@ export function buildCvPdf(content, pictureDataUrl, designOverride = null) {
   // The shared headline: brand + photo top-right, title, contact strip,
   // thin rule.
   const drawHeadline = (col) => {
-    setStyle(24, "bold", C_TITLE);
-    doc.text(brand, col.x, y + 8);
     if (pictureDataUrl) {
       try {
         doc.addImage(pictureDataUrl, col.right - 26, MARGIN_TOP - 6, 26, 26);
@@ -330,6 +334,11 @@ export function buildCvPdf(content, pictureDataUrl, designOverride = null) {
         // jsPDF only decodes PNG/JPEG reliably — skip the photo otherwise.
       }
     }
+    // A hidden headline keeps the photo but drops brand, title, contact
+    // and the rule — the same pieces the card carries on the web page.
+    if (headlineHidden) return;
+    setStyle(24, "bold", C_TITLE);
+    doc.text(brand, col.x, y + 8);
     y += 14;
     if (cv.title) {
       setStyle(12, "normal", C_MUTED);
@@ -362,19 +371,22 @@ export function buildCvPdf(content, pictureDataUrl, designOverride = null) {
     const col = { x: MARGIN_X, width: CONTENT_W, right: RIGHT_X };
     const panelTop = MARGIN_TOP - 8;
     drawHeadline(col);
-    doc.setDrawColor(ACCENT);
-    doc.setLineWidth(0.8);
-    doc.roundedRect(col.x - 3, panelTop, col.width + 6, y - panelTop - 2, 4, 4, "S");
-    // The panel's tint, washed over the headline region like the web
-    // panel's fill — light enough that the text beneath stays readable.
-    try {
-      doc.saveGraphicsState();
-      doc.setGState(new doc.GState({ opacity: dark ? 0.1 : 0.3 }));
-      doc.setFillColor(dark ? ACCENT : BAND_SUB);
-      doc.roundedRect(col.x - 3, panelTop, col.width + 6, y - panelTop - 2, 4, 4, "F");
-      doc.restoreGraphicsState();
-    } catch {
-      // GState unsupported — the panel stays an outline.
+    // No headline, no panel — the card's hidden flag skips the frame too.
+    if (!headlineHidden) {
+      doc.setDrawColor(ACCENT);
+      doc.setLineWidth(0.8);
+      doc.roundedRect(col.x - 3, panelTop, col.width + 6, y - panelTop - 2, 4, 4, "S");
+      // The panel's tint, washed over the headline region like the web
+      // panel's fill — light enough that the text beneath stays readable.
+      try {
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({ opacity: dark ? 0.1 : 0.3 }));
+        doc.setFillColor(dark ? ACCENT : BAND_SUB);
+        doc.roundedRect(col.x - 3, panelTop, col.width + 6, y - panelTop - 2, 4, 4, "F");
+        doc.restoreGraphicsState();
+      } catch {
+        // GState unsupported — the panel stays an outline.
+      }
     }
     drawDocument(col);
   };

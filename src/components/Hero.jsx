@@ -1,18 +1,21 @@
 import { useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, Check, Loader2, Pencil, X } from "lucide-react";
+import { Camera, Check, Download, Loader2, Palette, Pencil, Plus, X } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { pushNotification } from "../portfolio/notifications";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
+import { toDataUrl } from "../portfolio/portfolio-export";
+import { MERAJ_USER_ID } from "../content/merajPortfolio";
 import { AccentText } from "../content/AccentText";
 import {
   CV_PAGES,
   defaultCvFor,
   getActiveCv,
   getActivePortfolio,
+  newId,
   normalizeContent,
   SKILL_COLOR_OPTIONS,
 } from "../content/portfolioShape";
@@ -20,6 +23,7 @@ import { getMode } from "../modes";
 import { ModeTabs } from "./ModeTabs";
 import { CvDocument } from "./cv/CvDocument";
 import { DesignGallery } from "./cv/DesignGallery";
+import { DesignGuide } from "./cv/DesignGuide";
 import {
   accentForDesign,
   clearVisitorDesign,
@@ -60,9 +64,20 @@ const CONTACT_FIELDS = [
 
 const Hero = () => {
   const { content, save } = usePortfolio();
-  const { status, profile } = useAuth();
+  const { status, profile, canEdit } = useAuth();
+  const authed = status === "authenticated";
+  // Viewers browse the owner's site — the face on it is the owner's too.
+  // Signed-out visitors get no lookup at all: the visitor experience wears
+  // the bundled cartoon, and this null is what stops their probe — before
+  // the storage ACLs landed the visitor's lookup 403'd into the cartoon
+  // anyway, hiding that the code path ever asked for the owner's face.
+  const pictureUserId = !authed
+    ? null
+    : canEdit
+      ? profile?.userId
+      : MERAJ_USER_ID;
   const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
-    profile?.userId,
+    pictureUserId,
     status !== "unauthenticated" && !profile,
   );
   const { pathname } = useLocation();
@@ -71,7 +86,6 @@ const Hero = () => {
   // ACTIVE CV's hero fields (the owner picks which of their CVs is public)
   // instead of the portfolio's.
   const isCvPath = getMode(pathname).key === "cv";
-  const authed = status === "authenticated";
   const activeCv = getActiveCv(content);
   const cvMode = isCvPath && Boolean(activeCv);
   const hero = cvMode ? activeCv : content?.hero;
@@ -83,11 +97,13 @@ const Hero = () => {
   // the saved design wins again on sign-in.
   const [visitorDesign, setVisitorDesign] = useState(readVisitorDesign);
   const storedDesign = cvMode ? resolveCvDesign(activeCv?.design) : "classic";
-  const design = !authed && visitorDesign ? visitorDesign : storedDesign;
+  // Visitors and viewer-only roles restyle per device; editors see the
+  // stored design their pick would overwrite.
+  const design = !canEdit && visitorDesign ? visitorDesign : storedDesign;
   const t = cvDesignTokens(design);
   // The design's dimensions: `header` picks the Hero's structural branch
   // (side/stack/slab/band/badge), `doc` lives inside CvDocument's tokens.
-  const { header } = parseCvDesign(design);
+  const { header, doc } = parseCvDesign(design);
   const isBand = header === "band";
 
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
@@ -109,6 +125,10 @@ const Hero = () => {
   });
   const [saveState, setSaveState] = useState(null); // null | "saved" | error message
 
+  // The viewer's CV download — busy flag and error line for their bar.
+  const [cvBusy, setCvBusy] = useState(false);
+  const [cvError, setCvError] = useState(null);
+
   // Per-section editing on the CV document: one pencil per section card,
   // the clicked card's body swaps to the inline editor until Save.
   const [editingSectionId, setEditingSectionId] = useState(null);
@@ -118,6 +138,7 @@ const Hero = () => {
   // the ACTIVE CV (no new CV is created); visitors restyle their own view
   // and the pick stays on their device.
   const [designOpen, setDesignOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [designBusy, setDesignBusy] = useState(false);
   const [designError, setDesignError] = useState(null);
 
@@ -221,9 +242,143 @@ const Hero = () => {
     }
   };
 
-  // One edit-config shared by every CvDocument group; null for visitors so
-  // the document renders read-only.
-  const sectionEdit = authed
+  // A finished drag reorders the sections of the page group the card was
+  // dropped in — the document shows a filtered view of the full section
+  // list, so the full list is rebuilt by refilling those slots in the new
+  // order and leaving every other section's slot untouched.
+  const handleSectionsReorder = async (reordered) => {
+    if (!activeCv || !reordered?.length) return;
+    setSaveState(null);
+    try {
+      const groupIndex = new Map(
+        reordered.map((section, index) => [section.id, index])
+      );
+      let next = 0;
+      const savedContent = {
+        ...content,
+        cvs: (content.cvs ?? []).map((cv) =>
+          cv.id === activeCv?.id
+            ? {
+                ...cv,
+                sections: (cv.sections ?? []).map((section) =>
+                  groupIndex.has(section.id) ? reordered[next++] : section
+                ),
+              }
+            : cv
+        ),
+      };
+      await save(normalizeContent(savedContent, content));
+      setSaveState("saved");
+      setTimeout(() => setSaveState(null), 2500);
+    } catch (saveError) {
+      setSaveState(saveError?.message || "Saving failed.");
+    }
+  };
+
+  // "Add section" — a fresh empty section lands at the very top of the
+  // active CV (which is the top of its own page group) and its editor opens
+  // right away, so the first click is already writing into it.
+  const handleSectionAdd = async (pageKey) => {
+    if (!activeCv) return;
+    setSaveState(null);
+    const section = {
+      id: newId("cvs"),
+      type: "entry",
+      page: pageKey,
+      title: "New section",
+      items: [],
+    };
+    try {
+      // A new section lands below the headline card when that card leads
+      // the list — the headline is the page's opener, not a peer.
+      const existing = activeCv?.sections ?? [];
+      const at = existing[0]?.type === "headline" ? 1 : 0;
+      const withNew = [...existing.slice(0, at), section, ...existing.slice(at)];
+      const savedContent = {
+        ...content,
+        cvs: (content.cvs ?? []).map((cv) =>
+          cv.id === activeCv?.id ? { ...cv, sections: withNew } : cv
+        ),
+      };
+      await save(normalizeContent(savedContent, content));
+      startSectionEdit(section);
+    } catch (saveError) {
+      setSaveState(saveError?.message || "Saving failed.");
+    }
+  };
+
+  // Delete — the card's trash (armed by a confirming second click) removes
+  // the section and its items from the active CV for good; if it was open
+  // in the editor, the editor closes with it. The headline card only hides
+  // — its marker stays, and the "Add headline" button brings it back.
+  const handleSectionDelete = async (sectionId) => {
+    if (!activeCv) return;
+    setSaveState(null);
+    const deletingHeadline =
+      activeCv?.sections?.find((section) => section.id === sectionId)?.type ===
+      "headline";
+    try {
+      const savedContent = {
+        ...content,
+        cvs: (content.cvs ?? []).map((cv) =>
+          cv.id === activeCv?.id
+            ? {
+                ...cv,
+                sections: deletingHeadline
+                  ? (cv.sections ?? []).map((section) =>
+                      section.id === sectionId
+                        ? { ...section, hidden: true }
+                        : section
+                    )
+                  : (cv.sections ?? []).filter(
+                      (section) => section.id !== sectionId
+                    ),
+              }
+            : cv
+        ),
+      };
+      await save(normalizeContent(savedContent, content));
+      if (editingSectionId === sectionId) cancelSectionEdit();
+      if (deletingHeadline) setEditing(false);
+      setSaveState("saved");
+      setTimeout(() => setSaveState(null), 2500);
+    } catch (saveError) {
+      setSaveState(saveError?.message || "Saving failed.");
+    }
+  };
+
+  // Restore — the trash hid the headline card; this flips its marker's
+  // hidden flag back so the card returns wherever the order keeps it.
+  const handleHeadlineRestore = async () => {
+    if (!activeCv) return;
+    setSaveState(null);
+    try {
+      const savedContent = {
+        ...content,
+        cvs: (content.cvs ?? []).map((cv) =>
+          cv.id === activeCv?.id
+            ? {
+                ...cv,
+                sections: (cv.sections ?? []).map((section) =>
+                  section.type === "headline"
+                    ? { ...section, hidden: false }
+                    : section
+                ),
+              }
+            : cv
+        ),
+      };
+      await save(normalizeContent(savedContent, content));
+      setSaveState("saved");
+      setTimeout(() => setSaveState(null), 2500);
+    } catch (saveError) {
+      setSaveState(saveError?.message || "Saving failed.");
+    }
+  };
+
+  // One edit-config shared by every CvDocument group; null for visitors and
+  // viewer-only roles (no clouduser) so the document renders read-only.
+  const sectionEdit = authed && canEdit
     ? {
         activeId: editingSectionId,
         draft: draftSection,
@@ -231,17 +386,23 @@ const Hero = () => {
         onStart: startSectionEdit,
         onSave: handleSectionSave,
         onCancel: cancelSectionEdit,
+        onAdd: handleSectionAdd,
+        onDelete: handleSectionDelete,
+        onHeadlineEdit: startEdit,
+        onHeadlineAdd: handleHeadlineRestore,
+        headlineEditing: editing,
+        onReorder: handleSectionsReorder,
         error: saveState && saveState !== "saved" ? saveState : null,
       }
     : null;
 
   // Picking a design flips the active CV's design field — nothing else about
-  // the CV changes. Visitors get the same flip as a per-device preference:
-  // their page and its PDF restyle, the owner's stored design stays
-  // untouched, and the saved design returns on sign-in.
+  // the CV changes. Visitors AND viewer-only roles get the same flip as a
+  // per-device preference: their page and its PDF restyle, the owner's
+  // stored design stays untouched, and the saved design returns for editors.
   const handlePickDesign = async (key) => {
     if (designBusy) return;
-    if (!authed) {
+    if (!authed || !canEdit) {
       writeVisitorDesign(key);
       setVisitorDesign(key);
       pushNotification({
@@ -305,9 +466,11 @@ const Hero = () => {
   // branches share them verbatim.
 
   // The pill door above the picture (CV pages only): restyle the active CV.
+  // Editors and visitors get it — a visitor's pick is per-device anyway.
+  // Viewers (signed-in without clouduser) get no design doors at all.
   // Signed-in owners sit 10px lower than visitors — their side also carries
   // the picture's upload hover, so the pill gives it a little more room.
-  const pillsRow = isCvPath ? (
+  const pillsRow = isCvPath && (canEdit || !authed) ? (
     <div
       className={`flex items-center gap-2 ${
         authed ? "-translate-y-2.5" : "-translate-y-5"
@@ -330,11 +493,134 @@ const Hero = () => {
     </div>
   ) : null;
 
+  // The owner's create action — one "Add section" for the whole page: new
+  // sections land at the top of the stack, right after the headline card.
+  // It rides the action bar on stacked layouts and the document column on
+  // band layouts, so every design keeps the same create door.
+  const addSectionBtn =
+    sectionEdit && activeCv ? (
+      <button
+        type="button"
+        onClick={() => handleSectionAdd("intro")}
+        title="Add a new section"
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300"
+      >
+        <Plus className="h-3.5 w-3.5 text-sky-400" />
+        Add section
+      </button>
+    ) : null;
+
+  const moreTemplatesBtn = (
+    <button
+      type="button"
+      onClick={() => setDesignOpen(true)}
+      title="Browse more CV templates"
+      className="group inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300"
+    >
+      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[conic-gradient(from_180deg,#f472b6,#fb923c,#facc15,#4ade80,#22d3ee,#818cf8,#f472b6)] group-hover:animate-spin [animation-duration:3s]">
+        <span className="h-2 w-2 rounded-full bg-gray-900" />
+      </span>
+      More Templates
+    </button>
+  );
+
+  const guidelinesBtn = (
+    <button
+      type="button"
+      onClick={() => setGuideOpen(true)}
+      title="How this design works"
+      className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300"
+    >
+      <Palette className="h-4 w-4 text-sky-400" />
+      Guidelines
+    </button>
+  );
+
+  // The action bar above the section stack (CV mode, non-band layouts),
+  // hugging the card's own width. Owners get discovery on the left edge —
+  // templates, then the guide — and the create door on the right; visitors
+  // have no create door, so the guide keeps the right edge instead. Viewers
+  // get no bar at all. A fresh save flashes the Saved pill between sides.
+  const pillsBar = isCvPath && (canEdit || !authed) ? (
+    <div className="mx-auto mb-5 flex w-full max-w-3xl items-center justify-between gap-3 px-6">
+      {addSectionBtn ? (
+        <div className="flex items-center gap-2">
+          {moreTemplatesBtn}
+          {guidelinesBtn}
+        </div>
+      ) : (
+        <>
+          {moreTemplatesBtn}
+          {guidelinesBtn}
+        </>
+      )}
+      {saveState === "saved" && (
+        <span className="inline-flex items-center gap-1 rounded-full bg-white/5 px-3 py-1.5 text-sm font-medium text-teal-400">
+          <Check className="w-4 h-4" /> Saved
+        </span>
+      )}
+      {addSectionBtn}
+    </div>
+  ) : null;
+
+  // The viewer's one CV affordance — download the owner's document as a
+  // print-ready PDF. The design doors stay owner/visitor-only, so the
+  // viewer bar holds just this, right under the tabs on every layout.
+  const handleDownloadCv = async () => {
+    if (cvBusy) return;
+    setCvBusy(true);
+    setCvError(null);
+    try {
+      const [{ buildCvPdf, cvPdfFileName }, picture] = await Promise.all([
+        import("../portfolio/cv-pdf"),
+        url ? toDataUrl(url) : Promise.resolve(null),
+      ]);
+      buildCvPdf(content, picture).save(cvPdfFileName(content));
+    } catch (downloadError) {
+      setCvError(
+        downloadError?.message || "The download failed — please try again."
+      );
+    } finally {
+      setCvBusy(false);
+    }
+  };
+
+  const viewerCvBar = isCvPath && cvMode && authed && !canEdit ? (
+    // Same width wrapper as the document below (doc dimension decides it),
+    // so the button's right edge is the card column's right edge — above
+    // the card, not drifting to the viewport's far corner.
+    <div
+      className={`-mt-2 mb-2 mx-auto flex w-full items-center justify-end gap-3 px-6 ${
+        doc === "grid" ? "max-w-6xl" : doc === "columns" ? "max-w-5xl" : "max-w-3xl"
+      }`}
+    >
+      {cvError && (
+        <span className="text-xs text-red-400" role="alert">
+          {cvError}
+        </span>
+      )}
+      <button
+        type="button"
+        onClick={handleDownloadCv}
+        disabled={cvBusy}
+        title="Download this CV as a PDF"
+        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300 disabled:cursor-wait disabled:opacity-60"
+      >
+        {cvBusy ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+        ) : (
+          <Download className="h-3.5 w-3.5 text-sky-400" />
+        )}
+        Download CV
+      </button>
+    </div>
+  ) : null;
+
   // The edit affordance — top-right of the section, level with the heading.
   // Owners only; visitors see the pure showcase. Plus the transient Saved.
   const cornerControls = (
     <>
-      {authed && !editing && (
+      {authed && canEdit && !editing && (
         <button
           type="button"
           onClick={startEdit}
@@ -368,9 +654,9 @@ const Hero = () => {
           className={`w-full h-full object-cover ${t.photoFrame} shadow-lg transition ${picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""} ${uploading ? "opacity-50" : ""}`}
         />
         {/* Mobile: a camera badge pinned to the avatar. Desktop: a full
-            hover overlay. One button, two presentations. Shown only when
-            signed in — visitors browse the public showcase read-only. */}
-        {authed && (
+            hover overlay. One button, two presentations. Editors only —
+            visitors and viewers browse read-only. */}
+        {canEdit && (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -644,6 +930,55 @@ const Hero = () => {
       </div>
     );
 
+  // CV mode: the headline (greeting, title, contact, bio, skills) lives in
+  // its own card in the section stack — the same edit/delete icons, the
+  // same drag as every section. Each layout contributes its own composition
+  // (the band keeps contact and skills in its aside, so its card carries
+  // the greeting, title, bio and skills); while the hero editor is open,
+  // the card shows the form itself.
+  const headlineNode = !cvMode
+    ? null
+    : editing
+      ? editorForm
+      : isBand
+        ? (
+            <div className="flex flex-col gap-4">
+              {headlineCore}
+              {bioBlock}
+            </div>
+          )
+        : header === "slab" || header === "badge"
+          ? (
+              <div className="flex flex-col-reverse items-center gap-5 sm:flex-row">
+                <div className="min-w-0 flex-1 w-full">
+                  <div className={header === "slab" ? t.bannerBlock : t.badgePanel}>
+                    {headlineCore}
+                    {contactStrip}
+                  </div>
+                  {bioBlock}
+                  {skillsRow}
+                </div>
+                {avatarFigure}
+              </div>
+            )
+          : (
+              <div className="flex flex-col-reverse items-center gap-5 sm:flex-row">
+                <div className="min-w-0 flex-1 w-full">
+                  {headlineCore}
+                  {contactStrip}
+                  {bioBlock}
+                  {skillsRow}
+                </div>
+                {avatarFigure}
+              </div>
+            );
+
+  // The headline card's marker — its hidden flag drives the restore button.
+  const headlineMarker = activeCv?.sections?.find(
+    (section) => section.type === "headline"
+  );
+  const headlineHidden = headlineMarker?.hidden === true;
+
   // The document body — every section of the active CV on one page, grouped
   // by its "Show on" page (the old sub-pages), rendered in the CV's design.
   // Each group only shows when it has sections.
@@ -655,12 +990,11 @@ const Hero = () => {
           sections={activeCv?.sections?.filter(
             (section) => section.page === page.key
           )}
-          header={
-            page.key === "intro" ? null : (
-              <h2 className={t.groupHeading}>{page.label}</h2>
-            )
-          }
-          edit={sectionEdit}
+          headline={page.key === "intro" ? headlineNode : null}
+          headlineHidden={page.key === "intro" ? headlineHidden : false}
+          visitorDrag={!authed}
+          demo={!authed && page.key === "intro"}
+          edit={sectionEdit && activeCv ? sectionEdit : null}
         />
       ))
     : null;
@@ -679,34 +1013,57 @@ const Hero = () => {
 
   return (
     <div className={t.pageShell}>
-      {/* Landing mode switch — Portfolio | CV, right under the navbar. */}
-      <div className="flex justify-center pt-6 px-6">
+      {/* Landing mode switch — Portfolio | CV, right under the navbar.
+          The bottom margin is the tabs' own breathing room: content below
+          (bar or none) never touches them. */}
+      <div className="mb-5 flex justify-center pt-6 px-6">
         <ModeTabs />
       </div>
+
+      {/* Viewers' single CV door — the download sits between the tabs and
+          whichever layout branch follows. */}
+      {viewerCvBar}
 
       {isBand ? (
         <div className={t.cvGrid}>
           {cornerControls}
           {bandAside}
           <div className="flex flex-col gap-5">
-            {editing ? (
-              editorForm
-            ) : (
-              <div className="flex flex-col gap-4">
-                {headlineCore}
-                {bioBlock}
-              </div>
+            {/* Portfolio mode keeps its headline on top; in CV mode the
+                headline is the marker card inside the documents. */}
+            {!cvMode &&
+              (editing ? (
+                editorForm
+              ) : (
+                <div className="flex flex-col gap-4">
+                  {headlineCore}
+                  {bioBlock}
+                </div>
+              ))}
+            {/* Band CV mode: the create door lives above the document —
+                the band aside carries discovery, this carries action. */}
+            {cvMode && addSectionBtn && (
+              <div className="flex justify-end">{addSectionBtn}</div>
             )}
             {documents}
           </div>
         </div>
+      ) : cvMode ? (
+        // CV mode: the pill bar hugs the card's width — templates on the
+        // left edge, the design door on the right — and the section stack
+        // follows right below. The headline card carries its own pencil,
+        // so no corner pencil in this branch.
+        <div className="relative flex-1">
+          {pillsBar}
+          {/* The groups ride the same gap the cards do — after the group
+              headings went, one shared rhythm holds the page together, and
+              a single bottom pad closes it. */}
+          <div className="flex flex-col gap-5 pb-16">{documents}</div>
+        </div>
       ) : header === "stack" ? (
         <div className="relative flex-1 flex flex-col items-center p-6 md:p-10 gap-6 text-center">
           {cornerControls}
-          <div className="flex flex-col items-center gap-3">
-            {pillsRow}
-            {avatarFigure}
-          </div>
+          {avatarFigure}
           <motion.div
             className="max-w-xl w-full flex flex-col items-center gap-4"
             initial={{ opacity: 0, y: 20 }}
@@ -728,10 +1085,7 @@ const Hero = () => {
       ) : (
         <div className="relative flex-1 flex flex-col md:flex-row items-center justify-center p-6 md:p-10 gap-8">
           {cornerControls}
-          <div className="flex flex-col items-center gap-3">
-            {pillsRow}
-            {avatarFigure}
-          </div>
+          {avatarFigure}
           <motion.div
             className="text-center md:text-left max-w-md w-full flex flex-col gap-4"
             initial={{ opacity: 0, x: 50 }}
@@ -742,9 +1096,8 @@ const Hero = () => {
               editorForm
             ) : (
               <>
-                {/* The slab header wraps the headline in its solid accent
-                    block, the badge header in its framed panel; side keeps
-                    the bare headline. */}
+                {/* The slab/badge headers wrap the headline in their block
+                    or panel; side keeps the bare headline. */}
                 {header === "side" ? (
                   <>
                     {headlineCore}
@@ -767,7 +1120,6 @@ const Hero = () => {
           </motion.div>
         </div>
       )}
-      {!isBand && documents}
 
       {/* The design gallery — browse for free; a pick restyles the active
           CV. For visitors the pick restyles their own view only, and the
@@ -777,7 +1129,7 @@ const Hero = () => {
         busy={designBusy}
         error={designError}
         activeDesign={design}
-        localOnly={!authed}
+        localOnly={!canEdit}
         onResetLocal={
           visitorDesign
             ? () => {
@@ -796,6 +1148,18 @@ const Hero = () => {
         picture={picture}
         onPick={handlePickDesign}
         onClose={() => setDesignOpen(false)}
+      />
+      {/* The design school — the recipe behind this look, in the active
+          design's own accent. Its footer door hands the reader straight to
+          the gallery above. */}
+      <DesignGuide
+        open={guideOpen}
+        design={design}
+        onBrowse={() => {
+          setGuideOpen(false);
+          setDesignOpen(true);
+        }}
+        onClose={() => setGuideOpen(false)}
       />
     </div>
   );

@@ -19,9 +19,8 @@ const fieldClass =
 
 const Projects = () => {
   const { content, save } = usePortfolio();
-  const { status } = useAuth();
+  const { canEdit } = useAuth();
   const projects = content?.projects ?? [];
-  const authed = status === "authenticated";
 
   // The Add Project flow: an "Add Project" button — centered in the empty
   // state, top-right once cards exist — opens a modal; saving appends the
@@ -98,9 +97,10 @@ const Projects = () => {
         <ModeTabs />
       </div>
       <div className="relative flex-1 flex flex-col justify-center items-center bg-gray-800 px-6 py-10">
-        {/* Owners only — with cards on the wall the button sits top-right,
-            level with the heading; visitors see the pure showcase. */}
-        {authed && projects.length > 0 && (
+        {/* Editors only — with cards on the wall the button sits top-right,
+            level with the heading; visitors and viewers see the pure
+            showcase. */}
+        {canEdit && projects.length > 0 && (
           <button
             type="button"
             onClick={openModal}
@@ -129,11 +129,11 @@ const Projects = () => {
             <FolderOpen className="w-10 h-10 text-sky-400/70" />
             <p className="text-lg font-semibold text-gray-200">No projects yet</p>
             <p className="text-sm text-gray-400">
-              {authed
+              {canEdit
                 ? "Nothing here yet — add your first project."
                 : "Projects will appear here once the owner adds them."}
             </p>
-            {authed && (
+            {canEdit && (
               <button type="button" onClick={openModal} className={`${addButtonClass} mt-2`}>
                 <Plus className="w-4 h-4" /> Add Project
               </button>

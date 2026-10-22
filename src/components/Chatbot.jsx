@@ -3,11 +3,13 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
+  BookOpen,
   Check,
   ClipboardCopy,
   Compass,
   Copy,
   FileDown,
+  FileText,
   History,
   Library,
   Loader2,
@@ -20,6 +22,7 @@ import {
   Settings,
   Share2,
   Sparkles,
+  Target,
   ThumbsUp,
   Trash2,
   X,
@@ -28,7 +31,7 @@ import { usePortfolio } from "../portfolio/portfolio-context";
 import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { toDataUrl } from "../portfolio/portfolio-export";
-import { createFreshCv, newId, normalizeContent } from "../content/portfolioShape";
+import { createFreshCv, getActiveCv, newId, normalizeContent } from "../content/portfolioShape";
 import {
   PROVIDERS,
   SKILL_REGISTRY,
@@ -109,6 +112,9 @@ const SKILL_ICONS = {
   count_library: Library,
   share_page_link: Share2,
   write_cv: PenLine,
+  ask_cv: BookOpen,
+  summarize_cv: FileText,
+  analyze_fit: Target,
 };
 
 // The pages Page Jumper may open — the public showcase routes from App.jsx,
@@ -123,6 +129,41 @@ const CHAT_PAGES = [
   { path: "/contact", name: "Contact", keys: ["contact"] },
   { path: "/cv", name: "CV", keys: ["cv", "cv intro", "cv home"] },
 ];
+
+// A compact plain-text rendering of the active CV — the grounding the
+// reading skills (ask_cv, summarize_cv, analyze_fit) hand the model. Facts
+// only, tightly capped; the model composes its own prose around them.
+const cvDigest = (content) => {
+  const cv = getActiveCv(content);
+  if (!cv) return "";
+  const lines = [`CV: ${cv.name || cv.title || "Untitled"}`];
+  for (const [field, label] of [
+    ["greeting", "Greeting"],
+    ["title", "Headline"],
+    ["bioText", "Bio"],
+  ]) {
+    if (cv[field]) lines.push(`${label}: ${String(cv[field]).slice(0, 300)}`);
+  }
+  const skills = (cv.skills ?? [])
+    .map((skill) => skill?.name ?? skill)
+    .filter(Boolean);
+  if (skills.length) lines.push(`Skills: ${skills.join(", ")}`);
+  for (const section of cv.sections ?? []) {
+    lines.push(`\n[${section.title || "Section"}]`);
+    for (const item of section.items ?? []) {
+      const bits = [
+        item?.heading,
+        item?.sub,
+        item?.period,
+        item?.details ?? item?.text,
+      ]
+        .filter(Boolean)
+        .map((bit) => String(bit));
+      if (bits.length) lines.push(`- ${bits.join(" | ").slice(0, 400)}`);
+    }
+  }
+  return lines.join("\n").slice(0, 4000);
+};
 
 const loadStored = (key, fallback) => {
   try {
@@ -487,7 +528,7 @@ const SettingsView = ({
 // choice survives reloads on this device. A skill that can't run right now
 // (the library counter needs a signed-in owner, the email needs an
 // address) says why.
-const SkillsView = ({ installed, authed, email, onToggle, onBack }) => (
+const SkillsView = ({ installed, audience, email, onToggle, onBack }) => (
   <div className="flex flex-1 flex-col overflow-hidden">
     <div className="border-b border-white/10 px-3 py-2">
       <button
@@ -506,12 +547,18 @@ const SkillsView = ({ installed, authed, email, onToggle, onBack }) => (
       {SKILL_REGISTRY.map((skill) => {
         const isInstalled = installed.includes(skill.name);
         const Icon = SKILL_ICONS[skill.name];
+        // The registry's `audience` (default "all") decides who can run the
+        // skill — the panel says why an installed-but-unusable skill sits
+        // idle instead of leaving it a silent dud.
+        const needed = skill.audience ?? "all";
         const blocked =
-          (skill.name === "count_library" || skill.name === "write_cv") && !authed
-            ? "Needs a signed-in owner — it saves into your library."
-            : skill.name === "copy_email" && !email
-              ? "No contact email configured yet."
-              : null;
+          needed === "editor" && audience !== "editor"
+            ? "Needs the owner's account — it changes the library."
+            : needed === "member" && audience === "visitor"
+              ? "Sign in to use this skill."
+              : skill.name === "copy_email" && !email
+                ? "No contact email configured yet."
+                : null;
         return (
           <div
             key={skill.name}
@@ -641,7 +688,7 @@ const MessageAction = ({ icon: Icon, label, onClick, active, danger }) => (
 
 const Chatbot = () => {
   const { content, save } = usePortfolio();
-  const { status, profile } = useAuth();
+  const { status, profile, canEdit } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
@@ -683,6 +730,9 @@ const Chatbot = () => {
   const timerRef = useRef(null);
 
   const authed = status === "authenticated";
+  // Who is chatting, as the skills registry sees it: visitors browse, viewers
+  // read everything but write nothing, editors own the content.
+  const audience = !authed ? "visitor" : canEdit ? "editor" : "viewer";
   const { url: pictureUrl } = useProfilePicture(profile?.userId);
   const email =
     content?.contact?.mail?.href?.replace(/^mailto:/, "").split("?")[0] || "";
@@ -710,7 +760,42 @@ const Chatbot = () => {
         return `The CV was built and saved as “${file}” — it is in the visitor's downloads now.`;
       };
     }
-    if (authed && installedSkills.includes("write_cv")) {
+    // The reading skills — pure readers over the active CV, no writes. ask_cv
+    // serves everyone; the composers need a signed-in account.
+    if (installedSkills.includes("ask_cv")) {
+      handlers.ask_cv = ({ question } = {}) => {
+        const digest = cvDigest(content);
+        if (!digest) {
+          return "There is no active CV to read right now — the portfolio's other pages still have content.";
+        }
+        return `Here is the live CV content${question ? ` (their question: "${String(question).slice(0, 200)}")` : ""}. Answer only from these facts:\n${digest}`;
+      };
+    }
+    if (authed && installedSkills.includes("summarize_cv")) {
+      handlers.summarize_cv = ({ style } = {}) => {
+        const digest = cvDigest(content);
+        if (!digest) return "There is no active CV to summarize right now.";
+        const wanted = String(style ?? "").toLowerCase();
+        const shape = wanted.includes("link")
+          ? "a first-person LinkedIn 'About' section, under 120 words"
+          : wanted.includes("mail") || wanted.includes("email")
+            ? "a short professional intro email — subject line plus under 100 words"
+            : "a single punchy one-liner";
+        return `Compose ${shape} from ONLY these CV facts. Plain text, ready to paste:\n${digest}`;
+      };
+    }
+    if (authed && installedSkills.includes("analyze_fit")) {
+      handlers.analyze_fit = ({ jobDescription } = {}) => {
+        const jd = String(jobDescription ?? "").trim();
+        if (!jd) {
+          return "No job description arrived — ask them to paste it and try again.";
+        }
+        const digest = cvDigest(content);
+        if (!digest) return "There is no active CV to compare against.";
+        return `Compare this CV against the job description. Report: overall fit (high/medium/low), strengths that match, the specific gaps, and one honest advice line. Ground EVERY claim in these facts.\n\nJOB DESCRIPTION:\n${jd.slice(0, 2500)}\n\nCV:\n${digest}`;
+      };
+    }
+    if (canEdit && installedSkills.includes("write_cv")) {
       // The model does the thinking — profession analysis and the writing —
       // and calls this once with the finished CV. This side only sanitizes
       // shapes, stamps fresh ids and saves it as a NEW CV through the
@@ -784,7 +869,7 @@ const Chatbot = () => {
         }
       };
     }
-    if (authed && installedSkills.includes("count_library")) {
+    if (canEdit && installedSkills.includes("count_library")) {
       // The saved lists ride inside the portfolio content the shelf reads —
       // no extra data call, the tool just counts what's already here.
       handlers.count_library = () => {
@@ -834,7 +919,7 @@ const Chatbot = () => {
       };
     }
     return handlers;
-  }, [authed, content, pictureUrl, email, installedSkills, navigate, save]);
+  }, [authed, canEdit, content, pictureUrl, email, installedSkills, navigate, save]);
 
   // Opening the very first chat greets the visitor once per session.
   useEffect(() => {
@@ -1046,6 +1131,7 @@ const Chatbot = () => {
         onStatus: setBotStatus,
         currentPage: `${here || pathname} (${pathname})`,
         viewer,
+        audience,
       });
       setMessages((current) =>
         current.map((message) =>
@@ -1210,7 +1296,7 @@ const Chatbot = () => {
             ) : panel === "skills" ? (
               <SkillsView
                 installed={installedSkills}
-                authed={authed}
+                audience={audience}
                 email={email}
                 onToggle={toggleSkill}
                 onBack={() => setPanel(null)}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
@@ -10,10 +10,15 @@ import { NotificationBell } from "./NotificationBell";
 
 const Navbar = () => {
   const location = useLocation()
+  const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
-  const { status, claims, profile, logout } = useAuth();
+  const { status, claims, profile, logout, canEdit } = useAuth();
+  // A signed-in user without the editor role is a viewer: the notification
+  // bell and the owner destinations (My CV, Job Alerts) are owner/visitor
+  // chrome, not theirs.
+  const viewer = status === "authenticated" && !canEdit;
   // The brand comes from the signed-in user's content; signed-out visitors
   // see the site default, exactly as before.
   const { content } = usePortfolio();
@@ -34,6 +39,10 @@ const Navbar = () => {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
+    // Wherever they signed out from, the signed-out journey starts at the
+    // public intro showcase — replace, so Back never revisits a signed-in
+    // view wearing visitor clothes.
+    navigate("/", { replace: true });
   };
 
   // Close the avatar dropdown on any click outside it, and on navigation.
@@ -52,7 +61,8 @@ const Navbar = () => {
   // portfolio, the CV workspace while on /cv — the landing tab switch drives
   // it (menus live in src/modes.js). The search string matters on /login,
   // which adopts the mode of the page its returnTo is heading to.
-  const links = getMenuForMode(getMode(location.pathname, location.search).key);
+  const links = getMenuForMode(getMode(location.pathname, location.search).key)
+    .filter((link) => !viewer || !["/cv/library", "/cv/jobs"].includes(link.to));
 
   // On the login page the visitor is "heading to" their returnTo — keep the
   // menu they clicked highlighted (My CV vs Edit portfolio stays visibly
@@ -85,8 +95,9 @@ const Navbar = () => {
           </ul>
 
           {/* The bell sits just left of the account area — the avatar when
-              signed in, the Sign in button for visitors. */}
-          <NotificationBell />
+              signed in, the Sign in button for visitors. Viewers don't get
+              it. */}
+          {!viewer && <NotificationBell />}
 
           {/* Visitors: Sign in sits right of the bell, mirroring where the
               avatar hangs for signed-in users. */}

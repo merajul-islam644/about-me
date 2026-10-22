@@ -7,6 +7,11 @@
 // when the signed-in email matches (verified from his session at cutover).
 export const MERAJ_EMAIL = "merajzoarder6@gmail.com";
 
+// Meraj's IAM record id — invited viewers load HIS Portfolio row read-only
+// instead of seeing their own starter content (resolved via `iam users list`
+// at the viewer-mode cutover).
+export const MERAJ_USER_ID = "87e107b5-7be2-4964-a461-0a46348d3ef2";
+
 export const merajPortfolio = {
   version: 1,
   brand: "Merajul",

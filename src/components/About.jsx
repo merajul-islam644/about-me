@@ -31,7 +31,7 @@ const textToParagraphs = (text, previous = []) =>
 
 const About = () => {
   const { content, save } = usePortfolio();
-  const { status, profile } = useAuth();
+  const { status, profile, canEdit } = useAuth();
   const { url, pending: picPending } = useProfilePicture(
     profile?.userId,
     status !== "unauthenticated" && !profile,
@@ -83,8 +83,9 @@ const About = () => {
       </div>
       <div className="relative flex-1 flex flex-col md:flex-row items-center justify-center p-6 md:p-10 gap-8 md:gap-12">
         {/* The edit affordance — top-right of the section, level with the
-            heading. Owners only; visitors see the pure showcase. */}
-        {authed && !editing && (
+            heading. Editors only; visitors and viewers see the pure
+            showcase. */}
+        {authed && canEdit && !editing && (
           <button
             type="button"
             onClick={startEdit}

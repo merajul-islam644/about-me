@@ -668,13 +668,15 @@ const buildTokens = (header, doc, tone, photo, accent) => {
       ? "flex flex-wrap gap-2 mt-2 justify-center"
       : "flex flex-wrap gap-2 mt-2 justify-center md:justify-start",
     // Document body (CvDocument.jsx) — the arrangement IS the doc dimension.
+    // No bottom pad: on /cv the page wrapper owns the one closing pad, and
+    // every group rides the same gap the cards use.
     docWrap: bandHeader
-      ? "w-full flex flex-col gap-5 pb-16"
+      ? "w-full flex flex-col gap-5"
       : doc === "grid"
-        ? "w-full max-w-6xl mx-auto grid gap-5 px-6 pb-16 md:grid-cols-2 items-start"
+        ? "w-full max-w-6xl mx-auto grid gap-5 px-6 md:grid-cols-2 items-start"
         : doc === "columns"
-          ? "w-full max-w-5xl mx-auto px-6 pb-16 md:columns-2 md:gap-8"
-          : "w-full max-w-3xl mx-auto flex flex-col gap-5 px-6 pb-16",
+          ? "w-full max-w-5xl mx-auto px-6 md:columns-2 md:gap-8"
+          : "w-full max-w-3xl mx-auto flex flex-col gap-5 px-6",
     sectionCard:
       doc === "grid"
         ? dark
@@ -695,6 +697,15 @@ const buildTokens = (header, doc, tone, photo, accent) => {
               : dark
                 ? "relative rounded-2xl border border-white/10 bg-gray-900/60 p-5 md:p-6"
                 : "relative border-b border-gray-200 pb-5 md:pb-6 last:border-b-0",
+    // The entry "table" — an optional grid presentation an entry section
+    // can switch to (Education seeds it): full cell borders like a sheet.
+    tableEl: "w-full min-w-[34rem] border-collapse text-left text-sm",
+    tableHeadCell: dark
+      ? "border border-white/10 bg-white/[0.04] px-3 py-2 font-semibold text-gray-200"
+      : "border border-gray-300 bg-gray-50 px-3 py-2 font-semibold text-gray-700",
+    tableCell: dark
+      ? "border border-white/10 px-3 py-2 align-top text-gray-300"
+      : "border border-gray-300 px-3 py-2 align-top text-gray-600",
     sectionTitle: `pr-8 text-lg font-bold ${dark ? a.text300 : a.text700}`,
     emptyText: dark
       ? "text-sm italic text-gray-500"
@@ -702,6 +713,11 @@ const buildTokens = (header, doc, tone, photo, accent) => {
     editPencil: dark
       ? `absolute right-3 top-3 rounded-full p-2 text-gray-400 transition-colors hover:bg-white/5 ${a.hoverTextD}`
       : `absolute right-3 top-3 rounded-full p-2 text-gray-400 transition-colors hover:bg-gray-100 ${a.hoverTextLSoft}`,
+    // The delete button hides until its card is hovered (the card carries
+    // the `group` class) and sits beside the pencil.
+    editTrash: dark
+      ? "absolute right-12 top-3 rounded-full p-2 text-gray-400 opacity-0 transition-opacity hover:bg-white/5 focus-visible:opacity-100 group-hover:opacity-100 group-hover:text-red-400"
+      : "absolute right-12 top-3 rounded-full p-2 text-gray-400 opacity-0 transition-opacity hover:bg-gray-100 focus-visible:opacity-100 group-hover:opacity-100 group-hover:text-red-500",
     // Entries (EntryItem) and plain content.
     entryCard: dark
       ? "rounded-xl border border-white/5 bg-gray-800/60 p-4"
@@ -716,6 +732,10 @@ const buildTokens = (header, doc, tone, photo, accent) => {
     entryDetails: dark
       ? "mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-300"
       : "mt-2 text-sm leading-relaxed whitespace-pre-line text-gray-600",
+    // Same text without the card's top gap — table cells keep top-aligned rows.
+    entryDetailsFlat: dark
+      ? "text-sm leading-relaxed whitespace-pre-line text-gray-300"
+      : "text-sm leading-relaxed whitespace-pre-line text-gray-600",
     listPill: dark
       ? "rounded-full border border-white/10 bg-gray-800 px-3 py-1 text-sm text-gray-200"
       : "rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-sm text-gray-700",

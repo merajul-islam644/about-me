@@ -22,6 +22,9 @@ export const providerMeta = (value) =>
 // The tools the model may call. A tool is only offered when its handler is
 // present (the library counter needs a signed-in owner, the email needs a
 // configured address) — handlers live in the chatbot component.
+// `audience` names the narrowest role a tool makes sense for — "editor"
+// (the owner, who can change content) or "member" (any signed-in account).
+// Left off means "all": visitors included.
 const TOOL_SCHEMAS = [
   {
     name: "download_cv",
@@ -44,6 +47,7 @@ const TOOL_SCHEMAS = [
   {
     name: "write_cv",
     title: "CV Writer",
+    audience: "editor",
     summary:
       "Turns rough career details into a complete, profession-tailored CV saved straight into the owner's library.",
     progress: "Writing the CV…",
@@ -94,6 +98,61 @@ const TOOL_SCHEMAS = [
     },
   },
   {
+    name: "ask_cv",
+    title: "CV Reader",
+    summary:
+      "Answers questions about the portfolio owner's CV from its live content.",
+    progress: "Reading the CV…",
+    description:
+      "Fetch the portfolio owner's live CV content so you can answer a question about it — experience, education, skills, headline. Call this whenever an answer needs CV details; then answer only from the returned text, never inventing facts.",
+    args: {
+      properties: {
+        question: {
+          type: "string",
+          description: "What the person wants to know, in one line.",
+        },
+      },
+      required: ["question"],
+    },
+  },
+  {
+    name: "summarize_cv",
+    title: "CV Summarizer",
+    audience: "member",
+    summary:
+      "Composes shareable text — a LinkedIn about, intro email or one-liner — from the owner's CV.",
+    progress: "Composing the summary…",
+    description:
+      "Compose ready-to-paste text FROM the portfolio owner's live CV. Call with the 'style' they want: 'linkedin' (first-person about section), 'email' (short intro mail) or 'oneliner'. Use only facts from the returned CV.",
+    args: {
+      properties: {
+        style: {
+          type: "string",
+          description: "'linkedin', 'email' or 'oneliner'.",
+        },
+      },
+    },
+  },
+  {
+    name: "analyze_fit",
+    title: "Job Fit Analyst",
+    audience: "member",
+    summary:
+      "Compares a pasted job description against the owner's CV and reports the fit and the gaps.",
+    progress: "Analyzing the fit…",
+    description:
+      "Analyze how well the portfolio owner's CV matches a job description. Call with the full 'jobDescription' text, then report: overall fit (high/medium/low), matching strengths and the specific gaps — every claim grounded in the CV text the tool returns, never invented.",
+    args: {
+      properties: {
+        jobDescription: {
+          type: "string",
+          description: "The full job description text.",
+        },
+      },
+      required: ["jobDescription"],
+    },
+  },
+  {
     name: "jump_to_page",
     title: "Page Jumper",
     summary: "Takes the visitor straight to any page of the site.",
@@ -113,6 +172,7 @@ const TOOL_SCHEMAS = [
   {
     name: "count_library",
     title: "Library Counter",
+    audience: "editor",
     summary:
       "Tells the signed-in owner how many CVs and portfolios are saved in their library.",
     progress: "Counting the library…",
@@ -194,7 +254,7 @@ const safeJson = (raw) => {
 // The system prompt: who Robi is, what the site contains, plus the LIVE
 // portfolio content — so the model speaks the owner's real data and answers
 // in the visitor's language.
-const systemPromptFor = (content) => {
+const systemPromptFor = (content, audience = "visitor") => {
   const brand = content?.brand || "this portfolio";
   const owner = content?.hero?.name || brand;
   const skills = [
@@ -217,16 +277,22 @@ const systemPromptFor = (content) => {
 
   return [
     `You are Robi, the friendly robot assistant living in the corner of ${owner}'s portfolio site (${brand}).`,
-    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact and My CV (/cv/library). CV mode's menu is just My CV (/cv/library) — the shelf whose New CV modal takes a title and creates a CV pre-seeded with the standard sections (Professional Summary, Work Experience, Education, Skills and so on — all empty, ready to fill). The whole CV document lives on one page at /cv; signed-in owners edit every section of it right there with the pencil icons.`,
-    `It is also a builder: signed-in owners get a portfolio editor (/edit), a Themes gallery that restyles the CV (with a print preview of the real PDF), and library shelves (/library, /cv/library) holding every saved version. Visitors browse the public showcase and get the same CV viewing, theming and PDF hand-outs — no sign-in needed for those.`,
+    `The navbar menu labels are Intro (that's the home page, path "/"), About, Skills, Projects, Contact and My CV (/cv/library). CV mode's menu is just My CV (/cv/library) — the shelf whose New CV modal takes a title and creates a CV pre-seeded with the standard sections (Professional Summary, Work Experience, Education, Skills and so on — all empty, ready to fill). The whole CV lives on ONE page at /cv: a single stack of section cards, no group headings. Signed-in owners edit any card with its pencil, drag a card anywhere to reorder it, and delete with the trash (two clicks to confirm) — the headline card at the top is the exception: it edits but never deletes. "+ Add section" at the top-right of the page drops a fresh section right under the headline and opens its editor.`,
+    `It is also a builder: signed-in owners get a portfolio editor (/edit), the More Templates gallery on /cv that restyles the CV — 100 design layouts, every gallery card a live miniature, with a print preview of the real PDF — a Guidelines guide on /cv that teaches how that design system works, and library shelves (/library, /cv/library) holding every saved version. Visitors browse the public showcase and get the same CV viewing, theming, Guidelines and PDF hand-outs — and they can even DRAG the /cv section cards into any order just to see them arranged their way; nothing saves for them, a refresh restores the original. No sign-in needed for any of that.`,
     skills && `Live skills data: ${skills}.`,
     projects && `Live projects: ${projects}.`,
     email && `Contact email: ${email}.`,
     about && `About intro: ${about}`,
     `CV WRITING — when someone shares raw career details (jobs, studies, skills, projects) and wants a CV, first work out their PROFESSION from the clues: tools, verbs, degrees, industries. React and APIs mean software engineer; wards and patient care mean nurse; classrooms and lesson plans mean teacher; ledgers and audits mean accountant. Then shape the CV the way that profession's recruiters expect: engineering and development put Projects & Achievements high; healthcare, aviation and finance lead with Certifications & Training; hospitality, sales and support highlight Languages; researchers put Education first. Name the profession inside the Professional Summary.`,
     `CV section shapes: "entry" items carry heading (role/degree/title), sub (organization/place), period, details; "list" items are short texts (skills, languages); "text" items are paragraphs (summaries, references). Keep 5-8 sections with concrete, achievement-flavored wording. Use ONLY the facts you were given — reword freely, but never invent employers, dates, numbers or schools.`,
-    `When the member asks for a CV and you have the write_cv tool, compose the full CV and call write_cv ONCE with { title, profession, sections } instead of printing it, then confirm what was saved (it opens at /cv). Without write_cv — a visitor, or the skill uninstalled — write the CV as neat plain text in your reply and mention that signing in lets Robi save it into their library automatically.`,
-    `BE PROACTIVE with CV talk: whenever someone mentions a CV — writing one, improving it, its design, sections, printing or downloading — answer briefly, then push the conversation forward by offering 2-3 concrete next steps they can pick from. Draw them from what this person can actually do: signed-in members can have you write and save a whole CV (write_cv), restyle it from the Themes gallery on /cv, or get the PDF (download_cv); visitors can get a plain-text CV, the PDF, and a nudge that signing in unlocks auto-saving into their library. Vary the suggestions instead of repeating one, and on non-CV topics stay a normal assistant — don't push.`,
+    audience === "editor"
+      ? `When the member asks for a CV and you have the write_cv tool, compose the full CV and call write_cv ONCE with { title, profession, sections } instead of printing it, then confirm what was saved (it opens at /cv). Without write_cv — or the skill uninstalled — write the CV as neat plain text in your reply and mention that signing in lets Robi save it into their library automatically.`
+      : `You cannot save anything for this person — the library belongs to the owner's account. If they want a CV, either write it as neat plain text in your reply or, when they mean THIS portfolio's CV, use your reading tools instead.`,
+    audience === "editor"
+      ? `BE PROACTIVE with CV talk: whenever someone mentions a CV — writing one, improving it, its design, sections, printing or downloading — answer briefly, then push the conversation forward by offering 2-3 concrete next steps they can pick from. Draw them from what this person can actually do: signed-in members can have you write and save a whole CV (write_cv), restyle it from the More Templates gallery on /cv, learn the design from Guidelines, or get the PDF (download_cv); visitors can get a plain-text CV, the PDF, and a nudge that signing in unlocks auto-saving into their library. Vary the suggestions instead of repeating one, and on non-CV topics stay a normal assistant — don't push.`
+      : audience === "viewer"
+        ? `BE PROACTIVE as a reading assistant: after you answer, offer 2-3 concrete next steps from what they can actually do — dig deeper into a section (ask_cv), compare the CV to a job description they paste (analyze_fit), compose a LinkedIn about or intro email from it (summarize_cv), or take the PDF (download_cv). Vary the suggestions instead of repeating one, and on non-CV topics stay a normal assistant — don't push.`
+        : `BE PROACTIVE as a site guide: after you answer, offer 2-3 next steps from what a visitor can actually do — explore the pages, get the CV as a PDF (download_cv), copy the contact email, or ask you anything about ${owner}'s work (ask_cv). A gentle nudge that signing in unlocks CV building and saving is welcome — once. On non-site topics stay a normal assistant — don't push.`,
     `Rules: answer in the language the visitor writes (English, Bengali or Banglish). Keep replies short — under 80 words, plain text, no markdown. Be warm and a little playful; you are a robot. When a tool call produced a result, confirm it in your own words. If asked to do something the site cannot do, say what you CAN do instead.`,
   ]
     .filter(Boolean)
@@ -316,6 +382,7 @@ export const callGateway = async (
     onStatus = () => {},
     currentPage = "",
     viewer = null,
+    audience = null,
   } = {},
 ) => {
   const base = String(gateway.url || "").trim().replace(/\/+$/, "");
@@ -331,13 +398,15 @@ export const callGateway = async (
   // the handlers really being offered, so it never advertises a missing tool.
   const available = TOOL_SCHEMAS.filter((tool) => handlers?.[tool.name]);
   const system = [
-    systemPromptFor(content),
+    systemPromptFor(content, audience || (viewer ? "member" : "visitor")),
     // Who is on the other side, as verified by the app's own auth — not just
-    // claimed in chat. A signed-in member may discuss their account; a
-    // visitor gets site talk only.
-    viewer
-      ? `You are talking to a SIGNED-IN member${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, so you may share THEIR OWN account-related details — their name, email, and their portfolio content — and help with account things.`
-      : `You are talking to a VISITOR who is NOT signed in. Stick to site-related questions; never invent or reveal any account details, and if they ask about "their account", kindly tell them to sign in first via the Login option in the navbar.`,
+    // claimed in chat. An editor owns the content; a viewer reads it
+    // read-only; a visitor gets site talk only.
+    audience === "viewer" && viewer
+      ? `You are talking to a SIGNED-IN VIEWER${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, and they see the whole portfolio READ-ONLY: they may read, download and ask about everything here, but neither they nor you can edit the owner's content — never promise changes, saves or new CVs to them.`
+      : viewer
+        ? `You are talking to a SIGNED-IN member${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, so you may share THEIR OWN account-related details — their name, email, and their portfolio content — and help with account things.`
+        : `You are talking to a VISITOR who is NOT signed in. Stick to site-related questions; never invent or reveal any account details, and if they ask about "their account", kindly tell them to sign in first via the Login option in the navbar.`,
     // Where the visitor is sitting right now — the model otherwise answers
     // "which page am I on" with a guess.
     currentPage && `The visitor is currently viewing: ${currentPage}.`,
@@ -367,8 +436,16 @@ export const callGateway = async (
     let url;
     let headers;
     // Composing a whole CV through the write_cv tool call is a big JSON —
-    // rounds carrying that tool get room to finish it; plain chat stays lean.
-    const body = { max_tokens: handlers?.write_cv ? 2000 : 400, stream: true };
+    // rounds carrying that tool get room to finish it; the fit/summary
+    // composers get a little more than plain chat; plain chat stays lean.
+    const body = {
+      max_tokens: handlers?.write_cv
+        ? 2000
+        : handlers?.analyze_fit || handlers?.summarize_cv
+          ? 700
+          : 400,
+      stream: true,
+    };
     if (provider === "openai") {
       url = `${base}/v1/chat/completions`;
       headers = {

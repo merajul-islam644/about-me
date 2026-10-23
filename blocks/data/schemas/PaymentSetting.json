@@ -1,50 +1,91 @@
 {
-  "schemaName": "PaymentSetting",
   "collectionName": "PaymentSettings",
-  "schemaType": 1,
-  "description": "Singleton settings row for manual payments — bKash/Nagad numbers, price, duration, instructions. Key is always 'settings' (unique index makes it a singleton).",
   "fields": [
     {
       "name": "Key",
       "type": "String",
       "isArray": false,
-      "description": "Always 'settings' — unique index makes the row a singleton"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Always 'settings' — unique index makes the row a singleton",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "BkashNumber",
       "type": "String",
       "isArray": false,
-      "description": "bKash number shown on the Upgrade tab"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "bKash number shown on the Upgrade tab",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "NagadNumber",
       "type": "String",
       "isArray": false,
-      "description": "Nagad number shown on the Upgrade tab"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Nagad number shown on the Upgrade tab",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "PriceAmount",
       "type": "String",
       "isArray": false,
-      "description": "Pro price as a display string, e.g. 299"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Pro price as a display string, e.g. 299",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Currency",
       "type": "String",
       "isArray": false,
-      "description": "Currency label, e.g. BDT"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Currency label, e.g. BDT",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "DurationDays",
       "type": "String",
       "isArray": false,
-      "description": "How many days one approved payment grants Pro, e.g. 365"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "How many days one approved payment grants Pro, e.g. 365",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Instructions",
       "type": "String",
       "isArray": false,
-      "description": "Payment instructions shown on the Upgrade tab"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Payment instructions shown on the Upgrade tab",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     }
-  ]
+  ],
+  "schemaName": "PaymentSetting",
+  "schemaType": 1
 }

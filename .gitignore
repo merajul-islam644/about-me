@@ -31,3 +31,12 @@ dist-ssr
 .claude/
 .playwright-mcp/
 npm-cache/
+
+# Generated workflow JSON with injected credentials (rebuilt from
+# build-*.mjs + .env.local — never commit the built artifact)
+blocks/contact-mail-gate.json
+blocks/invite-content-gate.json
+blocks/tmp-*.json
+
+# Debug screenshots dumped at the repo root
+/*.png

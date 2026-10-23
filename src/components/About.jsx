@@ -30,7 +30,7 @@ const textToParagraphs = (text, previous = []) =>
     }));
 
 const About = () => {
-  const { content, save } = usePortfolio();
+  const { content, save, guest, guestPicture } = usePortfolio();
   const { status, profile, canEdit } = useAuth();
   const { url, pending: picPending } = useProfilePicture(
     profile?.userId,
@@ -38,8 +38,9 @@ const About = () => {
   );
 
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
-  // this user uploads their own picture.
-  const picture = url ?? visitorAvatar;
+  // this user uploads their own picture. Guests swap in the webhook's
+  // presigned URL, the same face Hero shows them.
+  const picture = guest ? (guestPicture || visitorAvatar) : (url ?? visitorAvatar);
 
   // Signed-in owners edit the section in place: the pencil turns the text
   // block itself into a textarea; save writes it back into the active

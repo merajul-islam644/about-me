@@ -50,3 +50,15 @@ export const getMenuForMode = (modeKey) =>
         { name: "Contact", to: "/contact" },
         { name: "My CV", to: "/cv/library" },
       ];
+
+// Guest-link holders browse like a DataViewer member who never signs in —
+// the bar carries only the content tour, and "My CV" reads the CV itself
+// (the shelf and Job Alerts are owner destinations a guest can't enter).
+export const getMenuForGuest = () => [
+  { name: "Intro", to: "/" },
+  { name: "About", to: "/about" },
+  { name: "Skills", to: "/skills" },
+  { name: "Projects", to: "/projects" },
+  { name: "Contact", to: "/contact" },
+  { name: "My CV", to: "/cv" },
+];

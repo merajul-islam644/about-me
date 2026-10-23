@@ -1,26 +1,43 @@
 {
-  "schemaName": "JobPreference",
   "collectionName": "JobPreferences",
-  "schemaType": 1,
-  "description": "One row per user: which job keywords to watch for in incoming community or social posts.",
   "fields": [
     {
       "name": "UserId",
       "type": "String",
       "isArray": false,
-      "description": "IAM record id (iam.me().data.itemId) of the owning user"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "IAM record id (iam.me().data.itemId) of the owning user",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Keywords",
       "type": "String",
       "isArray": false,
-      "description": "Comma-separated keywords; a post containing any keyword (case-insensitive) is a match"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Comma-separated keywords; a post containing any keyword (case-insensitive) is a match",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Sources",
       "type": "String",
       "isArray": false,
-      "description": "Reserved for per-source switches (telegram, rss, webhook); empty means all sources are on"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Reserved for per-source switches (telegram, rss, webhook); empty means all sources are on",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     }
-  ]
+  ],
+  "schemaName": "JobPreference",
+  "schemaType": 1
 }

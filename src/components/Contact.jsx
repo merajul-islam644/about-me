@@ -15,6 +15,9 @@ const Contact = () => {
   const [fromName, setFromName] = useState("");
   const [fromEmail, setFromEmail] = useState("");
   const [message, setMessage] = useState("");
+  // Honeypot: invisible to people, irresistible to form-filling bots. Any
+  // value here silently fails the send on the webhook side.
+  const [website, setWebsite] = useState("");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [formError, setFormError] = useState(null);
@@ -33,10 +36,10 @@ const Contact = () => {
     setSending(true);
     try {
       await sendContactEmail({
-        ownerEmail,
         fromName: fromName.trim(),
         fromEmail: fromEmail.trim(),
         message: message.trim(),
+        website,
       });
       setSent(true);
       setFromName("");
@@ -162,6 +165,16 @@ const Contact = () => {
               className="rounded-xl bg-gray-900/50 border border-white/10 p-4 flex flex-col gap-3"
             >
               <p className="text-sm font-medium text-gray-300">Send a message</p>
+              <input
+                type="text"
+                name="website"
+                value={website}
+                onChange={(event) => setWebsite(event.target.value)}
+                tabIndex={-1}
+                autoComplete="off"
+                aria-hidden="true"
+                className="absolute -left-[9999px] h-0 w-0 opacity-0"
+              />
               <input
                 type="text"
                 value={fromName}

@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Camera,
+  Check,
   ChevronLeft,
   ChevronRight,
+  Copy,
+  Link2,
   Loader2,
   Search,
   ShieldCheck,
@@ -25,6 +28,12 @@ import {
   listUsers,
   setUserRoles,
 } from "../lib/blocks/iam";
+import {
+  createGuestInvite,
+  inviteLinkFor,
+  listGuestInvites,
+  revokeGuestInvite,
+} from "../lib/blocks/invites";
 
 // Access control, reached from the Profile page: invite users into the
 // tenant and shape the roles & permissions they get — the same IAM admin
@@ -1097,6 +1106,287 @@ const RolesTab = () => {
   );
 };
 
+// Guest links — read-only passes to the owner's site for people who never
+// get an account. Creating one mints a random token into the Invites
+// collection; the link carries it, and the Invite Content Gate webhook
+// decides what (if anything) it unlocks. Revoking flips the row — the token
+// inside any already-shared link dies with it.
+const EXPIRY_OPTIONS = [
+  { value: "7", label: "7 days" },
+  { value: "30", label: "30 days" },
+  { value: "0", label: "No expiry" },
+];
+
+const shortDate = (value) =>
+  new Date(value).toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+
+// The gateway can hand booleans back as booleans or as their strings,
+// depending on the field — accept both spellings.
+const isRevoked = (row) => row.Revoked === true || row.Revoked === "true";
+const isExpired = (row) =>
+  Boolean(row.ExpiresAt) && new Date(row.ExpiresAt) <= new Date();
+const statusOf = (row) =>
+  isRevoked(row) ? "revoked" : isExpired(row) ? "expired" : "active";
+
+const STATUS_PILLS = {
+  active: "bg-emerald-400/10 text-emerald-300",
+  expired: "bg-amber-400/10 text-amber-300",
+  revoked: "bg-red-400/10 text-red-300",
+};
+
+const GuestLinksTab = ({ roles = [] }) => {
+  const [links, setLinks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [label, setLabel] = useState("");
+  const [expiry, setExpiry] = useState("7");
+  const [role, setRole] = useState(() =>
+    roles.some((entry) => entry.slug === "dataviewer")
+      ? "dataviewer"
+      : (roles[0]?.slug ?? "")
+  );
+  const [creating, setCreating] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
+  const confirmTimer = useRef(null);
+  const copiedTimer = useRef(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      setLinks(await listGuestInvites());
+    } catch (fetchError) {
+      setError(fetchError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  useEffect(
+    () => () => {
+      clearTimeout(confirmTimer.current);
+      clearTimeout(copiedTimer.current);
+    },
+    []
+  );
+
+  const create = async (event) => {
+    event.preventDefault();
+    setCreating(true);
+    setError("");
+    try {
+      await createGuestInvite({
+        label: label.trim() || "Guest link",
+        role,
+        expiresInDays: Number(expiry) || 0,
+      });
+      setLabel("");
+      setNotice("Guest link created — copy it from the list and share it.");
+      await load();
+    } catch (createError) {
+      setError(createError.message);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const copyLink = async (row) => {
+    try {
+      await navigator.clipboard.writeText(inviteLinkFor(row.Token));
+      setCopiedId(row.ItemId);
+      clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      setError("Copying failed — select the link text and copy it manually.");
+    }
+  };
+
+  const revoke = async (row) => {
+    // Two-click confirm, the same guard as deactivating a user.
+    if (confirmId !== row.ItemId) {
+      setConfirmId(row.ItemId);
+      clearTimeout(confirmTimer.current);
+      confirmTimer.current = setTimeout(() => setConfirmId(null), 3000);
+      return;
+    }
+    setConfirmId(null);
+    setError("");
+    try {
+      await revokeGuestInvite(row.ItemId);
+      setNotice(
+        "Link revoked — anyone holding it now just sees the public showcase."
+      );
+      await load();
+    } catch (revokeError) {
+      setError(revokeError.message);
+    }
+  };
+
+  return (
+    <section className="flex flex-col gap-4">
+      <p className="text-sm text-gray-400">
+        A guest link opens your site read-only — the same view a DataViewer
+        member gets, but with no account and no sign-in. Pick the role the
+        holder browses as; it works until it expires or you revoke it.
+      </p>
+
+      <form onSubmit={create} className="flex flex-wrap items-end gap-2">
+        <label className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-400">Label</span>
+          <input
+            type="text"
+            value={label}
+            onChange={(event) => setLabel(event.target.value)}
+            placeholder="Who is it for?"
+            aria-label="Guest link label"
+            className={fieldClass}
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-400">Expires</span>
+          <select
+            value={expiry}
+            onChange={(event) => setExpiry(event.target.value)}
+            aria-label="Guest link expiry"
+            className={fieldClass}
+          >
+            {EXPIRY_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-400">Role</span>
+          <select
+            value={role}
+            onChange={(event) => setRole(event.target.value)}
+            aria-label="Guest link role"
+            className={fieldClass}
+          >
+            <option value="">No role</option>
+            {roles.map((entry) => (
+              <option key={entry.slug} value={entry.slug}>
+                {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" disabled={creating} className={primaryButtonClass}>
+          {creating && <Loader2 className="h-4 w-4 animate-spin" />}
+          <Link2 className="h-4 w-4" />
+          Create link
+        </button>
+      </form>
+
+      {notice && (
+        <p className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2.5 text-sm text-emerald-300">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-2.5 text-sm text-red-300" role="alert">
+          {error}
+        </p>
+      )}
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-gray-800 px-6 py-10 text-sm text-gray-400">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading links…
+        </div>
+      ) : links.length === 0 ? (
+        <p className="rounded-2xl border border-white/10 bg-gray-800 px-6 py-10 text-center text-sm text-gray-400">
+          No guest links yet — create one above and share the copied URL.
+        </p>
+      ) : (
+        <ul className="flex flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-gray-800 shadow-xl">
+          {[...links]
+            .sort((a, b) => Number(isRevoked(a)) - Number(isRevoked(b)))
+            .map((row) => {
+              const status = statusOf(row);
+              return (
+                <li
+                  key={row.ItemId ?? row.Token}
+                  className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5"
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-gray-100">
+                      {row.Label || "Guest link"}
+                    </p>
+                    <p className="truncate font-mono text-xs text-gray-500">
+                      {inviteLinkFor(row.Token)}
+                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      {row.Role && (
+                        <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-xs text-sky-300">
+                          {roles.find((entry) => entry.slug === row.Role)?.name ?? row.Role}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-600">
+                        {row.ExpiresAt
+                          ? `Expires ${shortDate(row.ExpiresAt)}`
+                          : "Never expires"}
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${STATUS_PILLS[status]}`}
+                  >
+                    {status === "active"
+                      ? "Active"
+                      : status === "expired"
+                        ? "Expired"
+                        : "Revoked"}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => copyLink(row)}
+                      disabled={status === "revoked"}
+                      className={pillButtonClass}
+                    >
+                      {copiedId === row.ItemId ? (
+                        <Check className="h-4 w-4" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                      {copiedId === row.ItemId ? "Copied" : "Copy link"}
+                    </button>
+                    {status !== "revoked" && (
+                      <button
+                        type="button"
+                        onClick={() => revoke(row)}
+                        className={
+                          confirmId === row.ItemId
+                            ? "cursor-pointer rounded-full bg-red-500 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-red-400"
+                            : "cursor-pointer rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-400 transition-colors hover:border-red-400/50 hover:text-red-300"
+                        }
+                      >
+                        {confirmId === row.ItemId ? "Confirm revoke?" : "Revoke"}
+                      </button>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
+      )}
+    </section>
+  );
+};
+
 const AccessControlPage = () => {
   const { profile } = useAuth();
   const [tab, setTab] = useState("users");
@@ -1144,7 +1434,8 @@ const AccessControlPage = () => {
           <h2 className="text-3xl font-bold text-sky-400 md:text-4xl">Team &amp; access</h2>
           <p className="mt-2 text-sm text-gray-400 md:text-base">
             Invite people into this project and control exactly what their
-            roles let them see and do.
+            roles let them see and do. Guest links hand out read-only access
+            without an account.
           </p>
         </header>
 
@@ -1174,6 +1465,7 @@ const AccessControlPage = () => {
                 {[
                   { key: "users", label: "Users" },
                   { key: "roles", label: "Roles & permissions" },
+                  { key: "guests", label: "Guest links" },
                 ].map((entry) => (
                   <button
                     key={entry.key}
@@ -1197,8 +1489,10 @@ const AccessControlPage = () => {
                 meId={profile?.userId}
                 refreshRoles={loadRoles}
               />
-            ) : (
+            ) : tab === "roles" ? (
               <RolesTab />
+            ) : (
+              <GuestLinksTab roles={roles} />
             )}
           </>
         )}

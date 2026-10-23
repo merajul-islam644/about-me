@@ -13,6 +13,7 @@ import { CvShelf, PortfolioShelf } from "./components/ShelfPage";
 import JobAlertsPage from "./components/JobAlertsPage";
 import ProfilePage from "./components/ProfilePage";
 import AccessControlPage from "./components/AccessControlPage";
+import InviteLanding from "./components/InviteLanding";
 import { RequireAuth, RedirectIfAuthenticated, RequireEditor } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
@@ -133,6 +134,10 @@ const App = () => {
         {/* Not wrapped in any guard: the user is by definition not yet
             authenticated when they land here. */}
         <Route path="/login/callback" element={<CallbackPage />} />
+        {/* A guest link's landing hop — park the token and hand over to the
+            showcase it unlocks. No guard either: the whole point is entering
+            without signing in. */}
+        <Route path="/invite/:token" element={<InviteLanding />} />
       </Routes>
       {/* The chat launcher floats over every page — it lives outside the
           Routes so route changes never unmount an ongoing conversation. */}

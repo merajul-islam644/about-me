@@ -1,56 +1,103 @@
 {
-  "schemaName": "PaymentRequest",
   "collectionName": "PaymentRequests",
-  "schemaType": 1,
-  "description": "A manual bKash/Nagad payment submission from a user, reviewed by the admin in the Payments tab.",
   "fields": [
     {
       "name": "UserId",
       "type": "String",
       "isArray": false,
-      "description": "IAM record id (iam.me().data.itemId) of the submitting user"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "IAM record id (iam.me().data.itemId) of the submitting user",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "UserEmail",
       "type": "String",
       "isArray": false,
-      "description": "Submitter email, shown in the admin review queue"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Submitter email, shown in the admin review queue",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Method",
       "type": "String",
       "isArray": false,
-      "description": "Which channel the money was sent over: bkash | nagad"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Which channel the money was sent over: bkash | nagad",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "TxnId",
       "type": "String",
       "isArray": false,
-      "description": "Transaction ID from the bKash/Nagad confirmation; unique across all submissions"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Transaction ID from the bKash/Nagad confirmation; unique across all submissions",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Amount",
       "type": "String",
       "isArray": false,
-      "description": "Amount the user says they sent, as a display string taken from the settings price"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Amount the user says they sent, as a display string taken from the settings price",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "Status",
       "type": "String",
       "isArray": false,
-      "description": "pending | approved | rejected"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "pending | approved | rejected",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "ApprovedUntil",
       "type": "String",
       "isArray": false,
-      "description": "ISO date until which this approval grants Pro; empty until approved"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "ISO date until which this approval grants Pro; empty until approved",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     },
     {
       "name": "ReviewNote",
       "type": "String",
       "isArray": false,
-      "description": "Optional admin note recorded on approve/reject"
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "Optional admin note recorded on approve/reject",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
     }
-  ]
+  ],
+  "schemaName": "PaymentRequest",
+  "schemaType": 1
 }

@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import { getMode, MODES } from "../modes";
 import { useAuth } from "../auth/auth-context";
+import { usePortfolio } from "../portfolio/portfolio-context";
 
 // The landing switcher: pick what you're building today. Portfolio is the
 // live showcase; CV opens its own workspace. Active state follows the URL
@@ -8,12 +9,13 @@ import { useAuth } from "../auth/auth-context";
 // with the navbar about which mode the login page is wearing. Everyone
 // sees it — visitors flip between the showcases, and the signed-in owner
 // too (the navbar menus stay as the second way across). One label bends
-// per audience: signed-in invited users (viewers) read "My CV" — it's
-// their reading room, not a builder — while the owner and signed-out
-// visitors see "CV Builder".
+// per audience: signed-in invited users (viewers) and guest-link holders
+// read "My CV" — it's their reading room, not a builder — while the owner
+// and plain signed-out visitors see "CV Builder".
 export const ModeTabs = () => {
   const { pathname, search } = useLocation();
   const { status, canEdit } = useAuth();
+  const { guest } = usePortfolio();
   const viewer = status === "authenticated" && !canEdit;
   const current = getMode(pathname, search);
   return (
@@ -21,7 +23,7 @@ export const ModeTabs = () => {
       {MODES.map((mode) => {
         const Icon = mode.icon;
         const active = mode.key === current.key;
-        const label = mode.key === "cv" && viewer ? "My CV" : mode.label;
+        const label = mode.key === "cv" && (viewer || guest) ? "My CV" : mode.label;
         return (
           <Link
             key={mode.key}

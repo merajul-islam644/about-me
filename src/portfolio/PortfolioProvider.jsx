@@ -13,6 +13,11 @@ import {
   getPortfolioRow,
   savePortfolioRow,
 } from "./portfolio-api";
+import {
+  clearGuestToken,
+  fetchGuestContent,
+  readGuestToken,
+} from "../lib/blocks/invites";
 import { PortfolioContext } from "./portfolio-context";
 
 const IDLE = {
@@ -26,6 +31,13 @@ export const PortfolioProvider = ({ children }) => {
   const { status: authStatus, profile, canEdit } = useAuth();
   const [state, setState] = useState(IDLE);
   const [saving, setSaving] = useState(false);
+  // The role slug the webhook vouches the guest browses as (empty = plain
+  // guest). Refreshed on every guest fetch, since it lives on the invite.
+  const [guestRole, setGuestRole] = useState("");
+  // The owner's picture as a ~5-minute presigned URL, riding the same
+  // webhook response. Guests have no storage session of their own, so this
+  // is the only face they can see (and later print into the CV PDF).
+  const [guestPicture, setGuestPicture] = useState("");
 
   const displayNameOf = (prof) =>
     [prof?.firstName, prof?.lastName].filter(Boolean).join(" ") ||
@@ -126,15 +138,27 @@ export const PortfolioProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => {
-    if (authStatus === "authenticated" && profile?.userId && canEdit) {
-      load(profile);
-    } else if (authStatus === "authenticated") {
-      loadOwnerView();
-    } else if (authStatus === "unauthenticated") {
-      // Visitors browse the public showcase read-only: no row is fetched and
-      // nothing can be saved (itemId stays null). Signing in swaps in the
-      // owner's row for viewers, the user's own for editors.
+  // A guest-link holder (signed-out) reads the owner's live content through
+  // the invite webhook — read-only, itemId stays null so nothing can be
+  // saved. A dead link (revoked, expired, unknown) clears itself and drops
+  // the visit back to the public showcase, so a stale link never renders
+  // anything it shouldn't.
+  const loadGuestView = useCallback(async (token) => {
+    setState((prev) => ({ ...prev, status: "loading", error: null }));
+    try {
+      const result = await fetchGuestContent(token);
+      setGuestRole(String(result.role ?? ""));
+      setGuestPicture(String(result.pictureUrl ?? ""));
+      setState({
+        status: "ready",
+        content: normalizeContent(result.content),
+        itemId: null,
+        error: null,
+      });
+    } catch {
+      clearGuestToken();
+      setGuestRole("");
+      setGuestPicture("");
       setState({
         status: "ready",
         content: normalizeContent(visitorPortfolio),
@@ -142,7 +166,31 @@ export const PortfolioProvider = ({ children }) => {
         error: null,
       });
     }
-  }, [authStatus, profile, canEdit, load, loadOwnerView]);
+  }, []);
+
+  useEffect(() => {
+    if (authStatus === "authenticated" && profile?.userId && canEdit) {
+      load(profile);
+    } else if (authStatus === "authenticated") {
+      loadOwnerView();
+    } else if (authStatus === "unauthenticated") {
+      // Visitors browse the public showcase read-only: no row is fetched and
+      // nothing can be saved (itemId stays null). A guest-link holder instead
+      // gets the owner's live content the webhook returns. Signing in swaps
+      // in the owner's row for viewers, the user's own for editors.
+      const guestToken = readGuestToken();
+      if (guestToken) {
+        loadGuestView(guestToken);
+      } else {
+        setState({
+          status: "ready",
+          content: normalizeContent(visitorPortfolio),
+          itemId: null,
+          error: null,
+        });
+      }
+    }
+  }, [authStatus, profile, canEdit, load, loadOwnerView, loadGuestView]);
 
   const save = useCallback(
     async (nextContent) => {
@@ -185,8 +233,16 @@ export const PortfolioProvider = ({ children }) => {
       return load(profile, { isRetry: true });
     }
     if (authStatus === "authenticated") return loadOwnerView();
+    const guestToken = readGuestToken();
+    if (guestToken) return loadGuestView(guestToken);
     return Promise.resolve();
-  }, [authStatus, profile, canEdit, load, loadOwnerView]);
+  }, [authStatus, profile, canEdit, load, loadOwnerView, loadGuestView]);
+
+  // A guest-link holder (signed-out, token stashed by /invite/:token) browses
+  // like a signed-in DataViewer member: the owner's content, read-only, and
+  // none of the account chrome. False the moment the token clears (dead
+  // link) or the visitor signs in.
+  const guest = authStatus === "unauthenticated" && Boolean(readGuestToken());
 
   const value = useMemo(
     () => ({
@@ -195,10 +251,13 @@ export const PortfolioProvider = ({ children }) => {
       itemId: state.itemId,
       error: state.error,
       saving,
+      guest,
+      guestRole,
+      guestPicture,
       save,
       refresh,
     }),
-    [state, saving, save, refresh]
+    [state, saving, guest, guestRole, guestPicture, save, refresh]
   );
 
   return (

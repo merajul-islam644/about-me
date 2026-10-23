@@ -687,7 +687,7 @@ const MessageAction = ({ icon: Icon, label, onClick, active, danger }) => (
 );
 
 const Chatbot = () => {
-  const { content, save } = usePortfolio();
+  const { content, save, guest } = usePortfolio();
   const { status, profile, canEdit } = useAuth();
   const { pathname } = useLocation();
   const navigate = useNavigate();
@@ -1178,6 +1178,12 @@ const Chatbot = () => {
   const bubbleClass = "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed";
   const headerButtonClass =
     "cursor-pointer rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300";
+
+  // Robi's brain is the AI gateway configured on the OWNER'S device (per-viewer
+  // localStorage) — a guest-link holder has none, so the honest "wire me to a
+  // brain" nudge would ask them to paste a gateway token they can't have.
+  // Guest chrome hides the launcher entirely, like the bell and Sign in.
+  if (guest) return null;
 
   return (
     <>

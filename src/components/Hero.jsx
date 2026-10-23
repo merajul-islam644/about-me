@@ -8,6 +8,7 @@ import { usePortfolio } from "../portfolio/portfolio-context";
 import { pushNotification } from "../portfolio/notifications";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { toDataUrl } from "../portfolio/portfolio-export";
+import { fetchGuestContent, readGuestToken } from "../lib/blocks/invites";
 import { MERAJ_USER_ID } from "../content/merajPortfolio";
 import { AccentText } from "../content/AccentText";
 import {
@@ -63,21 +64,24 @@ const CONTACT_FIELDS = [
 ];
 
 const Hero = () => {
-  const { content, save } = usePortfolio();
+  const { content, save, guest, guestPicture } = usePortfolio();
   const { status, profile, canEdit } = useAuth();
   const authed = status === "authenticated";
-  // Viewers browse the owner's site — the face on it is the owner's too.
-  // Signed-out visitors get no lookup at all: the visitor experience wears
-  // the bundled cartoon, and this null is what stops their probe — before
-  // the storage ACLs landed the visitor's lookup 403'd into the cartoon
-  // anyway, hiding that the code path ever asked for the owner's face.
+  // Viewers browse the owner's site — the face on it is the owner's too,
+  // and so are guest-link holders: the owner invited them to read the same
+  // site, and their downloaded CV carries the same photo. Plain signed-out
+  // visitors still get no lookup at all: they wear the bundled cartoon, and
+  // that null is what stops their probe.
   const pictureUserId = !authed
-    ? null
+    ? (guest ? MERAJ_USER_ID : null)
     : canEdit
       ? profile?.userId
       : MERAJ_USER_ID;
+  // A guest's face arrives through the invite webhook (guestPicture), not a
+  // storage lookup — signed-out guests have no session, so the hook's probe
+  // would only 401. Null userId keeps the hook dormant for them.
   const { url, uploading, error, upload, pending: picPending } = useProfilePicture(
-    pictureUserId,
+    guest ? null : pictureUserId,
     status !== "unauthenticated" && !profile,
   );
   const { pathname } = useLocation();
@@ -107,8 +111,9 @@ const Hero = () => {
   const isBand = header === "band";
 
   // Everyone starts on the cartoon avatar — signed-in or visitor — until
-  // this user uploads their own picture.
-  const picture = url ?? visitorAvatar;
+  // this user uploads their own picture. Guests swap in the webhook's
+  // presigned URL (empty until it answers, or when no picture exists).
+  const picture = guest ? (guestPicture || visitorAvatar) : (url ?? visitorAvatar);
   const fileInputRef = useRef(null);
 
   // Inline editing, About-style: the pencil turns the text column itself
@@ -466,11 +471,12 @@ const Hero = () => {
   // branches share them verbatim.
 
   // The pill door above the picture (CV pages only): restyle the active CV.
-  // Editors and visitors get it — a visitor's pick is per-device anyway.
-  // Viewers (signed-in without clouduser) get no design doors at all.
+  // Editors and plain visitors get it — a visitor's pick is per-device
+  // anyway. Viewers (signed-in without clouduser) get no design doors at
+  // all, and neither do guests: they browse one fixed document.
   // Signed-in owners sit 10px lower than visitors — their side also carries
   // the picture's upload hover, so the pill gives it a little more room.
-  const pillsRow = isCvPath && (canEdit || !authed) ? (
+  const pillsRow = isCvPath && (canEdit || (!authed && !guest)) ? (
     <div
       className={`flex items-center gap-2 ${
         authed ? "-translate-y-2.5" : "-translate-y-5"
@@ -538,10 +544,11 @@ const Hero = () => {
 
   // The action bar above the section stack (CV mode, non-band layouts),
   // hugging the card's own width. Owners get discovery on the left edge —
-  // templates, then the guide — and the create door on the right; visitors
-  // have no create door, so the guide keeps the right edge instead. Viewers
-  // get no bar at all. A fresh save flashes the Saved pill between sides.
-  const pillsBar = isCvPath && (canEdit || !authed) ? (
+  // templates, then the guide — and the create door on the right; plain
+  // visitors have no create door, so the guide keeps the right edge
+  // instead. Viewers and guests get no bar at all (guests get the viewer's
+  // download bar below). A fresh save flashes the Saved pill between sides.
+  const pillsBar = isCvPath && (canEdit || (!authed && !guest)) ? (
     <div className="mx-auto mb-5 flex w-full max-w-3xl items-center justify-between gap-3 px-6">
       {addSectionBtn ? (
         <div className="flex items-center gap-2">
@@ -564,8 +571,23 @@ const Hero = () => {
   ) : null;
 
   // The viewer's one CV affordance — download the owner's document as a
-  // print-ready PDF. The design doors stay owner/visitor-only, so the
-  // viewer bar holds just this, right under the tabs on every layout.
+  // print-ready PDF. Guests get the same affordance: they browse like a
+  // DataViewer member who never signed in. The design doors stay
+  // owner/visitor-only, so the bar holds just this, right under the tabs
+  // on every layout.
+  // Guests have no storage session, so their photo rides the invite webhook
+  // too: a FRESH presigned URL per download (the page-load one expires in
+  // ~5 minutes), inlined for the PDF. Any failure degrades to no photo —
+  // the download itself still works.
+  const freshGuestPicture = async () => {
+    try {
+      const result = await fetchGuestContent(readGuestToken());
+      return result.pictureUrl ? await toDataUrl(result.pictureUrl) : null;
+    } catch {
+      return null;
+    }
+  };
+
   const handleDownloadCv = async () => {
     if (cvBusy) return;
     setCvBusy(true);
@@ -573,7 +595,11 @@ const Hero = () => {
     try {
       const [{ buildCvPdf, cvPdfFileName }, picture] = await Promise.all([
         import("../portfolio/cv-pdf"),
-        url ? toDataUrl(url) : Promise.resolve(null),
+        guest
+          ? freshGuestPicture()
+          : url
+            ? toDataUrl(url)
+            : Promise.resolve(null),
       ]);
       buildCvPdf(content, picture).save(cvPdfFileName(content));
     } catch (downloadError) {
@@ -585,7 +611,7 @@ const Hero = () => {
     }
   };
 
-  const viewerCvBar = isCvPath && cvMode && authed && !canEdit ? (
+  const viewerCvBar = isCvPath && cvMode && (authed ? !canEdit : guest) ? (
     // Same width wrapper as the document below (doc dimension decides it),
     // so the button's right edge is the card column's right edge — above
     // the card, not drifting to the viewport's far corner.

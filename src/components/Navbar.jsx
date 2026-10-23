@@ -6,6 +6,7 @@ import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { getMenuForMode, getMenuForGuest, getMode } from "../modes";
+import { clearGuestToken } from "../lib/blocks/invites";
 import { NotificationBell } from "./NotificationBell";
 
 const Navbar = () => {
@@ -39,6 +40,11 @@ const Navbar = () => {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
+    // Signing out ends every persona the browser was wearing — including
+    // the guest one. A leftover invite token would otherwise re-boot the
+    // next page load as that guest with no visible way back in, since the
+    // guest chrome hides the Sign in button.
+    clearGuestToken();
     // Wherever they signed out from, the signed-out journey starts at the
     // public intro showcase — replace, so Back never revisits a signed-in
     // view wearing visitor clothes.

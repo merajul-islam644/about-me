@@ -7,7 +7,17 @@ import { blocksClient } from "./client";
 
 const SCHEMA_NAME = "Invite";
 const COLLECTION_NAME = "Invites";
-const FIELDS = ["ItemId", "Token", "Label", "ExpiresAt", "Revoked", "Role"];
+const FIELDS = [
+  "ItemId",
+  "Token",
+  "Label",
+  "ExpiresAt",
+  "Revoked",
+  "Role",
+  // The one CV this link shares (the CV's id inside the owner's content);
+  // empty means nothing is shared and the guest sees an empty state.
+  "CvId",
+];
 
 // Where a /invite/:token landing parks the token for the portfolio provider.
 export const GUEST_INVITE_STORAGE_KEY = "guest-invite-token";
@@ -17,7 +27,7 @@ export const GUEST_INVITE_STORAGE_KEY = "guest-invite-token";
 // would also have to be added to the release build's args, and a missed one
 // silently bakes `undefined` into the deployed bundle.
 const INVITE_WEBHOOK_URL =
-  "https://logic.seliseblocks.com/api/Workflow/webhook/D4f8caef7566149768aad0a6b61d7d48a/a00645958186456fa75756ea24ca7eb3/0bf3adb61b7d41758012d1bf67c13b8e";
+  "https://logic.seliseblocks.com/api/Workflow/webhook/D4f8caef7566149768aad0a6b61d7d48a/a00645958186456fa75756ea24ca7eb3/7a509343434646d6b03f27867f1ea140";
 
 const collection = () => blocksClient.data.collection(SCHEMA_NAME);
 
@@ -112,11 +122,19 @@ export async function fetchGuestContent(token) {
 }
 
 // Owner side: mint a fresh link. `role` is the role slug the holder browses
-// as (e.g. "dataviewer", "clouduser"); empty means a plain guest. Returns
-// the raw token — the caller builds the shareable URL with inviteLinkFor.
-export async function createGuestInvite({ label, role = "", expiresInDays = 0 }) {
+// as (e.g. "dataviewer", "clouduser"); empty means a plain guest. `cvId`
+// picks the one CV the webhook will share with this link — empty (the
+// default) shares nothing and the guest sees an empty state. Returns the
+// raw token — the caller builds the shareable URL with inviteLinkFor.
+export async function createGuestInvite({
+  label,
+  role = "",
+  expiresInDays = 0,
+  cvId = "",
+}) {
   const row = { Token: generateInviteToken(), Label: label, Revoked: false };
   if (role) row.Role = role;
+  if (cvId) row.CvId = cvId;
   if (expiresInDays > 0) {
     row.ExpiresAt = new Date(
       Date.now() + expiresInDays * 24 * 60 * 60 * 1000
@@ -150,5 +168,16 @@ export async function revokeGuestInvite(itemId) {
     await collection().update(itemId, { Revoked: true });
   } catch (error) {
     throw apiError("revoke", error);
+  }
+}
+
+// Retarget a live link to a different CV (or to none, with "") — the
+// webhook reads CvId on every guest page load, so the change lands on the
+// guest's very next visit without touching the link or token.
+export async function setInviteCv(itemId, cvId) {
+  try {
+    await collection().update(itemId, { CvId: cvId || "" });
+  } catch (error) {
+    throw apiError("CV update", error);
   }
 }

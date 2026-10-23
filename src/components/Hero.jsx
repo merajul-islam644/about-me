@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, Check, Download, Loader2, Palette, Pencil, Plus, Printer, X } from "lucide-react";
+import { Camera, Check, Download, FileX, Loader2, Palette, Pencil, Plus, Printer, X } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
@@ -92,6 +92,10 @@ const Hero = () => {
   const isCvPath = getMode(pathname).key === "cv";
   const activeCv = getActiveCv(content);
   const cvMode = isCvPath && Boolean(activeCv);
+  // A guest whose invite shares no CV (or one that has since been deleted)
+  // lands here: the CV tab becomes a friendly empty page, never the
+  // owner's other CVs and never a broken render.
+  const guestCvGate = guest && isCvPath && !activeCv;
   const hero = cvMode ? activeCv : content?.hero;
   // The active CV's visual design — the whole /cv page (headline, document,
   // and the PDF through the stored field) renders in it. Portfolio pages
@@ -681,7 +685,12 @@ const Hero = () => {
     // the card, not drifting to the viewport's far corner.
     <>
       <div
-        className={`-mt-2 mb-2 mx-auto flex w-full items-center justify-end gap-3 px-6 ${
+        className={`mx-auto mb-2 flex w-full items-center justify-end gap-3 px-6 ${
+          // The -mt-2 hugs the bar under the tab strip; guests have no
+          // strip, so theirs gets ordinary top padding instead — without
+          // it the button rides up into the navbar's edge.
+          guest ? "pt-6" : "-mt-2"
+        } ${
           doc === "grid" ? "max-w-6xl" : doc === "columns" ? "max-w-5xl" : "max-w-3xl"
         }`}
       >
@@ -1186,7 +1195,21 @@ const Hero = () => {
           whichever layout branch follows. */}
       {viewerCvBar}
 
-      {isBand ? (
+      {guestCvGate ? (
+        <div className="flex flex-1 items-center justify-center px-6 pb-16">
+          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gray-800 px-8 py-14 text-center shadow-xl">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/10 text-sky-300">
+              <FileX className="h-7 w-7" />
+            </span>
+            <h2 className="text-xl font-bold text-white">No CV shared yet</h2>
+            <p className="text-sm leading-relaxed text-gray-400">
+              This invite link doesn't include a CV. The owner can pick one
+              for your link any time from their access page — after that, the
+              CV shows up right here.
+            </p>
+          </div>
+        </div>
+      ) : isBand ? (
         <div className={t.cvGrid}>
           {cornerControls}
           {bandAside}

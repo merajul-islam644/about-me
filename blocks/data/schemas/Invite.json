@@ -38,6 +38,18 @@
       "validationRule": null
     },
     {
+      "name": "CvId",
+      "type": "String",
+      "isArray": false,
+      "enumValues": [],
+      "isPIIData": false,
+      "isUniqueData": false,
+      "description": "The one CV id this link shares; empty means nothing is shared and the guest sees an empty state",
+      "requiredOn": "None",
+      "fields": [],
+      "validationRule": null
+    },
+    {
       "name": "ExpiresAt",
       "type": "DateTime",
       "isArray": false,

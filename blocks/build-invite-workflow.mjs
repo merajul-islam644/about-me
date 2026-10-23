@@ -101,7 +101,7 @@ const workflow = {
         clientSecret,
         haveBody: true,
         bodyContentType: "json",
-        body: gatewayRead("getInvites", "ItemId Token Label ExpiresAt Revoked Role"),
+        body: gatewayRead("getInvites", "ItemId Token Label ExpiresAt Revoked Role CvId"),
       },
       settings: {},
       pinData: null,
@@ -116,7 +116,7 @@ const workflow = {
       parameters: {
         mode: "each",
         language: "js",
-        script: `var resp = ($node["Find Invite"] ?? {}).json ?? {};\nvar out = resp.output ?? resp;\nvar items = (((out.data ?? {}).getInvites ?? {}).items) ?? [];\nvar parsed = (($node["Parse Token"] ?? {}).json ?? {});\nparsed = parsed.output ?? parsed;\nvar token = String(parsed.token ?? "");\nvar inv = items.find(function (r) { return String(r.Token ?? "") === token; });\nif (!inv) return { valid: false, reason: "not_found" };\nvar revoked = inv.Revoked === true || String(inv.Revoked).toLowerCase() === "true";\nif (revoked) return { valid: false, reason: "revoked" };\nif (inv.ExpiresAt && new Date(inv.ExpiresAt) < new Date()) return { valid: false, reason: "expired" };\nreturn { valid: true, label: String(inv.Label ?? ""), role: String(inv.Role ?? "") };`,
+        script: `var resp = ($node["Find Invite"] ?? {}).json ?? {};\nvar out = resp.output ?? resp;\nvar items = (((out.data ?? {}).getInvites ?? {}).items) ?? [];\nvar parsed = (($node["Parse Token"] ?? {}).json ?? {});\nparsed = parsed.output ?? parsed;\nvar token = String(parsed.token ?? "");\nvar inv = items.find(function (r) { return String(r.Token ?? "") === token; });\nif (!inv) return { valid: false, reason: "not_found" };\nvar revoked = inv.Revoked === true || String(inv.Revoked).toLowerCase() === "true";\nif (revoked) return { valid: false, reason: "revoked" };\nif (inv.ExpiresAt && new Date(inv.ExpiresAt) < new Date()) return { valid: false, reason: "expired" };\nreturn { valid: true, label: String(inv.Label ?? ""), role: String(inv.Role ?? ""), cvid: String(inv.CvId ?? "") };`,
       },
       settings: {},
       pinData: null,
@@ -234,7 +234,7 @@ const workflow = {
       parameters: {
         mode: "each",
         language: "js",
-        script: `var resp = ($node["Get Portfolio"] ?? {}).json ?? {};\nvar out = resp.output ?? resp;\nvar items = (((out.data ?? {}).getPortfolios ?? {}).items) ?? [];\nvar row = items.find(function (r) { return String(r.UserId ?? "") === "${MERAJ_USER_ID}"; });\nvar checked = (($node["Validate Invite"] ?? {}).json ?? {});\nchecked = checked.output ?? checked;\nif (!row) return { isSuccess: false, errors: "CONTENT_MISSING" };\nvar pic = (($node["Picture URL"] ?? {}).json ?? {});\npic = pic.output ?? pic;\nvar picId = (($node["Picture Id"] ?? {}).json ?? {});\npicId = picId.output ?? picId;\nvar pictureUrl = pic.isSuccess === true ? String(pic.url ?? "") : "";\ntry {\n  return { isSuccess: true, content: JSON.parse(row.Content), role: String(checked.role ?? ""), pictureUrl: pictureUrl, pictureFileId: String(picId.pictureFileId ?? "").slice(0, 8) };\n} catch (e) {\n  return { isSuccess: false, errors: "CONTENT_CORRUPT" };\n}`,
+        script: `var resp = ($node["Get Portfolio"] ?? {}).json ?? {};\nvar out = resp.output ?? resp;\nvar items = (((out.data ?? {}).getPortfolios ?? {}).items) ?? [];\nvar row = items.find(function (r) { return String(r.UserId ?? "") === "${MERAJ_USER_ID}"; });\nvar checked = (($node["Validate Invite"] ?? {}).json ?? {});\nchecked = checked.output ?? checked;\nif (!row) return { isSuccess: false, errors: "CONTENT_MISSING" };\nvar pic = (($node["Picture URL"] ?? {}).json ?? {});\npic = pic.output ?? pic;\nvar picId = (($node["Picture Id"] ?? {}).json ?? {});\npicId = picId.output ?? picId;\nvar pictureUrl = pic.isSuccess === true ? String(pic.url ?? "") : "";\ntry {\n  var content = JSON.parse(row.Content);\n  // Per-invite CV sharing: the link's CvId picks the ONE cv the guest may\n  // see. An empty id (nothing shared) or a stale one (the cv was deleted)\n  // shares nothing — the app renders an empty state. Other cvs never\n  // leave the server.\n  var cvid = String(checked.cvid ?? "");\n  var all = Array.isArray(content.cvs) ? content.cvs : (content.cv ? [content.cv] : []);\n  var shared = null;\n  for (var ci = 0; ci < all.length; ci++) {\n    if (String(all[ci].id ?? "") === cvid) { shared = all[ci]; break; }\n  }\n  content.cvs = shared ? [shared] : [];\n  content.activeCvId = shared ? String(shared.id) : "";\n  delete content.cv;\n  return { isSuccess: true, content: content, role: String(checked.role ?? ""), pictureUrl: pictureUrl, pictureFileId: String(picId.pictureFileId ?? "").slice(0, 8) };\n} catch (e) {\n  return { isSuccess: false, errors: "CONTENT_CORRUPT" };\n}`,
       },
       settings: {},
       pinData: null,

@@ -33,7 +33,9 @@ import {
   inviteLinkFor,
   listGuestInvites,
   revokeGuestInvite,
+  setInviteCv,
 } from "../lib/blocks/invites";
+import { usePortfolio } from "../portfolio/portfolio-context";
 
 // Access control, reached from the Profile page: invite users into the
 // tenant and shape the roles & permissions they get — the same IAM admin
@@ -1150,11 +1152,17 @@ const GuestLinksTab = ({ roles = [] }) => {
       ? "dataviewer"
       : (roles[0]?.slug ?? "")
   );
+  const [cvId, setCvId] = useState("");
   const [creating, setCreating] = useState(false);
   const [copiedId, setCopiedId] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
+  // The per-row CV retarget: which row is saving right now.
+  const [savingCvId, setSavingCvId] = useState(null);
   const confirmTimer = useRef(null);
   const copiedTimer = useRef(null);
+  // The owner's own CVs — the pickers offer exactly these, by name.
+  const { content } = usePortfolio();
+  const cvs = content?.cvs ?? [];
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1189,8 +1197,10 @@ const GuestLinksTab = ({ roles = [] }) => {
         label: label.trim() || "Guest link",
         role,
         expiresInDays: Number(expiry) || 0,
+        cvId,
       });
       setLabel("");
+      setCvId("");
       setNotice("Guest link created — copy it from the list and share it.");
       await load();
     } catch (createError) {
@@ -1232,12 +1242,39 @@ const GuestLinksTab = ({ roles = [] }) => {
     }
   };
 
+  // Retarget a live link's shared CV. The webhook reads CvId on every guest
+  // page load, so the guest's next visit sees the new pick — no new link.
+  const changeCv = async (row, nextCvId) => {
+    setSavingCvId(row.ItemId);
+    setError("");
+    setNotice("");
+    try {
+      await setInviteCv(row.ItemId, nextCvId);
+      setLinks((current) =>
+        current.map((entry) =>
+          entry.ItemId === row.ItemId ? { ...entry, CvId: nextCvId } : entry
+        )
+      );
+      setNotice(
+        nextCvId
+          ? "Shared CV updated — the guest sees it on their next visit."
+          : "Sharing stopped — the guest now sees an empty CV page."
+      );
+    } catch (cvError) {
+      setError(cvError.message);
+    } finally {
+      setSavingCvId(null);
+    }
+  };
+
   return (
     <section className="flex flex-col gap-4">
       <p className="text-sm text-gray-400">
         A guest link opens your site read-only — the same view a DataViewer
         member gets, but with no account and no sign-in. Pick the role the
-        holder browses as; it works until it expires or you revoke it.
+        holder browses as and the one CV the link shares (none shared means
+        their CV tab stays empty); it works until it expires or you revoke
+        it.
       </p>
 
       <form onSubmit={create} className="flex flex-wrap items-end gap-2">
@@ -1279,6 +1316,22 @@ const GuestLinksTab = ({ roles = [] }) => {
             {roles.map((entry) => (
               <option key={entry.slug} value={entry.slug}>
                 {entry.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-400">Shared CV</span>
+          <select
+            value={cvId}
+            onChange={(event) => setCvId(event.target.value)}
+            aria-label="Guest link shared CV"
+            className={fieldClass}
+          >
+            <option value="">None — guest sees no CV</option>
+            {cvs.map((cv) => (
+              <option key={cv.id} value={cv.id}>
+                {cv.name || "Untitled CV"}
               </option>
             ))}
           </select>
@@ -1334,6 +1387,29 @@ const GuestLinksTab = ({ roles = [] }) => {
                           {roles.find((entry) => entry.slug === row.Role)?.name ?? row.Role}
                         </span>
                       )}
+                      {/* The per-link CV control — which one CV (if any)
+                          this guest may open. Saves on change; the guest's
+                          next page load picks it up. */}
+                      <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                        <span>CV</span>
+                        <select
+                          value={row.CvId ?? ""}
+                          disabled={status === "revoked" || savingCvId === row.ItemId}
+                          onChange={(event) => changeCv(row, event.target.value)}
+                          aria-label={`Shared CV for ${row.Label || "guest link"}`}
+                          className="cursor-pointer rounded-lg border border-white/10 bg-gray-800 px-2 py-1 text-xs text-gray-200 focus:border-sky-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">None shared</option>
+                          {cvs.map((cv) => (
+                            <option key={cv.id} value={cv.id}>
+                              {cv.name || "Untitled CV"}
+                            </option>
+                          ))}
+                        </select>
+                        {savingCvId === row.ItemId && (
+                          <Loader2 className="h-3 w-3 animate-spin text-sky-400" />
+                        )}
+                      </label>
                       <span className="text-xs text-gray-600">
                         {row.ExpiresAt
                           ? `Expires ${shortDate(row.ExpiresAt)}`

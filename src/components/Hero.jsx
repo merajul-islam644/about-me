@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Camera, Check, Download, Loader2, Palette, Pencil, Plus, X } from "lucide-react";
+import { Camera, Check, Download, Loader2, Palette, Pencil, Plus, Printer, X } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
@@ -570,11 +570,12 @@ const Hero = () => {
     </div>
   ) : null;
 
-  // The viewer's one CV affordance — download the owner's document as a
-  // print-ready PDF. Guests get the same affordance: they browse like a
-  // DataViewer member who never signed in. The design doors stay
-  // owner/visitor-only, so the bar holds just this, right under the tabs
-  // on every layout.
+  // The viewer's one CV affordance — "Print/Download PDF" opens the
+  // owner's document as the print-ready PDF in an overlay whose own
+  // buttons print it or save a copy. Guests get the same door: they
+  // browse like a DataViewer member who never signed in. The design doors
+  // stay owner/visitor-only, so the bar holds just this, right under the
+  // tabs on every layout.
   // Guests have no storage session, so their photo rides the invite webhook
   // too: a FRESH presigned URL per download (the page-load one expires in
   // ~5 minutes), inlined for the PDF. Any failure degrades to no photo —
@@ -588,20 +589,29 @@ const Hero = () => {
     }
   };
 
+  // One shared PDF build for the download and the preview — guests fetch a
+  // fresh presigned photo (the page-load one expires in ~5 minutes), owners
+  // reuse the loaded one.
+  const buildCvDoc = async () => {
+    const [{ buildCvPdf }, picture] = await Promise.all([
+      import("../portfolio/cv-pdf"),
+      guest
+        ? freshGuestPicture()
+        : url
+          ? toDataUrl(url)
+          : Promise.resolve(null),
+    ]);
+    return buildCvPdf(content, picture);
+  };
+
   const handleDownloadCv = async () => {
     if (cvBusy) return;
     setCvBusy(true);
     setCvError(null);
     try {
-      const [{ buildCvPdf, cvPdfFileName }, picture] = await Promise.all([
-        import("../portfolio/cv-pdf"),
-        guest
-          ? freshGuestPicture()
-          : url
-            ? toDataUrl(url)
-            : Promise.resolve(null),
-      ]);
-      buildCvPdf(content, picture).save(cvPdfFileName(content));
+      const doc = await buildCvDoc();
+      const { cvPdfFileName } = await import("../portfolio/cv-pdf");
+      doc.save(cvPdfFileName(content));
     } catch (downloadError) {
       setCvError(
         downloadError?.message || "The download failed — please try again."
@@ -611,35 +621,159 @@ const Hero = () => {
     }
   };
 
+  // The preview: the same A4 PDF the download produces, shown in the
+  // browser's own viewer inside an overlay — from there the guest prints
+  // it or saves it. The blob URL lives in a ref so the unmount cleanup can
+  // revoke it (state updates are no-ops by the time cleanup runs).
+  const previewUrlRef = useRef(null);
+  const previewFrameRef = useRef(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+
+  useEffect(
+    () => () => {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    },
+    []
+  );
+
+  const handlePreviewCv = async () => {
+    if (cvBusy) return;
+    setCvBusy(true);
+    setCvError(null);
+    try {
+      if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+      const doc = await buildCvDoc();
+      previewUrlRef.current = String(doc.output("bloburl"));
+      setPreviewUrl(previewUrlRef.current);
+    } catch (previewError) {
+      setCvError(
+        previewError?.message || "The preview failed — please try again."
+      );
+    } finally {
+      setCvBusy(false);
+    }
+  };
+
+  const closePreview = () => {
+    if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
+    previewUrlRef.current = null;
+    setPreviewUrl(null);
+  };
+
+  // Chromium and Firefox print the embedded PDF in place; Apple's engine
+  // refuses (it would print the page instead), so there the same document
+  // opens in a new tab whose built-in viewer carries the print button.
+  const handlePrintCv = () => {
+    if (/apple/i.test(navigator.vendor) && previewUrl) {
+      window.open(previewUrl, "_blank");
+      return;
+    }
+    try {
+      previewFrameRef.current?.contentWindow?.print();
+    } catch {
+      if (previewUrl) window.open(previewUrl, "_blank");
+    }
+  };
+
   const viewerCvBar = isCvPath && cvMode && (authed ? !canEdit : guest) ? (
     // Same width wrapper as the document below (doc dimension decides it),
     // so the button's right edge is the card column's right edge — above
     // the card, not drifting to the viewport's far corner.
-    <div
-      className={`-mt-2 mb-2 mx-auto flex w-full items-center justify-end gap-3 px-6 ${
-        doc === "grid" ? "max-w-6xl" : doc === "columns" ? "max-w-5xl" : "max-w-3xl"
-      }`}
-    >
-      {cvError && (
-        <span className="text-xs text-red-400" role="alert">
-          {cvError}
-        </span>
-      )}
-      <button
-        type="button"
-        onClick={handleDownloadCv}
-        disabled={cvBusy}
-        title="Download this CV as a PDF"
-        className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300 disabled:cursor-wait disabled:opacity-60"
+    <>
+      <div
+        className={`-mt-2 mb-2 mx-auto flex w-full items-center justify-end gap-3 px-6 ${
+          doc === "grid" ? "max-w-6xl" : doc === "columns" ? "max-w-5xl" : "max-w-3xl"
+        }`}
       >
-        {cvBusy ? (
-          <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
-        ) : (
-          <Download className="h-3.5 w-3.5 text-sky-400" />
+        {cvError && (
+          <span className="text-xs text-red-400" role="alert">
+            {cvError}
+          </span>
         )}
-        Download CV
-      </button>
-    </div>
+        <button
+          type="button"
+          onClick={handlePreviewCv}
+          disabled={cvBusy}
+          title="Open the print-ready PDF — print it or download from there"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300 disabled:cursor-wait disabled:opacity-60"
+        >
+          {cvBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin text-sky-400" />
+          ) : (
+            <Printer className="h-3.5 w-3.5 text-sky-400" />
+          )}
+          Print/Download PDF
+        </button>
+      </div>
+      {/* The print preview: the viewer's real A4 PDF in the browser's own
+          viewer. Esc or the backdrop closes it and revokes the blob. */}
+      {previewUrl && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          onClick={closePreview}
+          onKeyDown={(event) => event.key === "Escape" && closePreview()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="CV print preview"
+        >
+          <div
+            className="flex h-full max-h-[92vh] w-full max-w-4xl flex-col gap-3"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-bold text-white">
+                  Print preview
+                </h3>
+                <p className="mt-0.5 text-sm text-gray-400">
+                  The exact A4 document the download produces — print it or
+                  save a copy.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closePreview}
+                title="Close preview"
+                aria-label="Close preview"
+                className="rounded-full p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-white/10 bg-gray-800">
+              <iframe
+                ref={previewFrameRef}
+                title="CV print preview"
+                src={previewUrl}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleDownloadCv}
+                disabled={cvBusy}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300 disabled:cursor-wait disabled:opacity-60"
+              >
+                {cvBusy ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-sky-400" />
+                ) : (
+                  <Download className="h-4 w-4 text-sky-400" />
+                )}
+                Download PDF
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintCv}
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400"
+              >
+                <Printer className="h-4 w-4" /> Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   ) : null;
 
   // The edit affordance — top-right of the section, level with the heading.
@@ -1018,8 +1152,10 @@ const Hero = () => {
           )}
           headline={page.key === "intro" ? headlineNode : null}
           headlineHidden={page.key === "intro" ? headlineHidden : false}
-          visitorDrag={!authed}
-          demo={!authed && page.key === "intro"}
+          // The playful local drag is a plain-visitor toy — a guest was
+          // invited to read one CV, not to rearrange it.
+          visitorDrag={!authed && !guest}
+          demo={!authed && !guest && page.key === "intro"}
           edit={sectionEdit && activeCv ? sectionEdit : null}
         />
       ))

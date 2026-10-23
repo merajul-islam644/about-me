@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/auth-context";
-import { Bell, Check, ExternalLink, Loader2, RefreshCw, Save, Trash2 } from "lucide-react";
+import { Bell, Check, Clock, ExternalLink, Loader2, RefreshCw, Save, Trash2 } from "lucide-react";
 import { ModeTabs } from "./ModeTabs";
 import {
   deleteMatchedJob,
@@ -41,6 +41,22 @@ const NOTIF_SUPPORTED = typeof Notification !== "undefined";
 // client-side over CreatedDate (rows without one sink to the bottom).
 const newestFirst = (a, b) =>
   (Date.parse(b.CreatedDate ?? "") || 0) - (Date.parse(a.CreatedDate ?? "") || 0);
+
+// Card time label from CreatedDate — when the poller matched the post (the
+// feeds are polled every 30 minutes, so this sits close to the post time).
+// Relative until a month out, then a plain date; null when there is none.
+const relativeTime = (value) => {
+  const ms = Date.parse(value ?? "");
+  if (!ms) return null;
+  const mins = Math.floor((Date.now() - ms) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(ms).toLocaleDateString();
+};
 
 const actionPillClass =
   "inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-200 transition-colors hover:border-sky-400/40 hover:text-sky-300 disabled:cursor-not-allowed disabled:opacity-40";
@@ -332,6 +348,7 @@ const JobAlertsPage = () => {
                   .map((word) => word.trim())
                   .filter(Boolean);
                 const unread = job.IsRead !== "true";
+                const timeLabel = relativeTime(job.CreatedDate);
                 return (
                   <article
                     key={job.ItemId}
@@ -357,6 +374,15 @@ const JobAlertsPage = () => {
                         {badgeSource}
                       </span>
                     </div>
+                    {timeLabel && (
+                      <p
+                        className="flex items-center gap-1.5 text-xs text-gray-500"
+                        title={new Date(Date.parse(job.CreatedDate)).toLocaleString()}
+                      >
+                        <Clock className="h-3 w-3" />
+                        {timeLabel}
+                      </p>
+                    )}
                     {job.Snippet && (
                       <p className="line-clamp-3 text-sm leading-relaxed text-gray-400">
                         {job.Snippet}

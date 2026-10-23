@@ -1,11 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { Bell, FileText, Info, Palette, Trash2 } from "lucide-react";
-import { useNotifications } from "../portfolio/notifications";
+import { useNavigate } from "react-router-dom";
+import { Bell, Briefcase, FileText, Info, Palette, Trash2 } from "lucide-react";
+import { useAuth } from "../auth/auth-context";
+import { pushNotification, useNotifications } from "../portfolio/notifications";
+import { getMatchedJobs, jobSourceLabel } from "../jobs/jobs-api";
 
 const KIND_ICONS = {
   cv: FileText,
   theme: Palette,
   info: Info,
+  job: Briefcase,
 };
 
 // Same wording as the chatbot's history — minutes while fresh, then a date.
@@ -28,6 +32,64 @@ export const NotificationBell = () => {
     useNotifications();
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
+  const navigate = useNavigate();
+  const { profile } = useAuth();
+  const userId = profile?.userId;
+
+  // Job matches ride the same feed: every minute the owner's matched posts
+  // are diffed against a per-user, per-device seen set — anything new lands
+  // as a "job" notification (the stable `job-<ItemId>` id keeps the push
+  // idempotent even with two tabs open). The very first run only seeds the
+  // seen set, so the existing backlog never floods the panel; matches that
+  // arrive after this page has been seen announce themselves. "Clear all"
+  // empties the feed but not the seen set, so cleared posts stay cleared.
+  useEffect(() => {
+    if (!userId) return undefined;
+    const seenKey = `app.jobs.seen.${userId}`;
+    const seenLoad = () => {
+      try {
+        const raw = localStorage.getItem(seenKey);
+        return raw ? new Set(JSON.parse(raw)) : null;
+      } catch {
+        return null;
+      }
+    };
+    const seenSave = (ids) => {
+      try {
+        localStorage.setItem(seenKey, JSON.stringify([...ids].slice(-200)));
+      } catch {
+        /* storage blocked — worst case a match re-announces once */
+      }
+    };
+    const tick = async () => {
+      try {
+        const rows = await getMatchedJobs(userId);
+        const seen = seenLoad();
+        if (!seen) {
+          seenSave(new Set(rows.map((row) => row.ItemId)));
+          return;
+        }
+        const fresh = rows.filter((row) => !seen.has(row.ItemId));
+        if (fresh.length === 0) return;
+        for (const row of fresh) {
+          pushNotification({
+            id: `job-${row.ItemId}`,
+            kind: "job",
+            title: String(row.Title || "Untitled post"),
+            detail: `Job match · ${jobSourceLabel(row)}`,
+            at: Date.parse(row.CreatedDate ?? "") || Date.now(),
+          });
+          seen.add(row.ItemId);
+        }
+        seenSave(seen);
+      } catch {
+        // keep the last known state; the next tick retries
+      }
+    };
+    tick();
+    const timer = setInterval(tick, 60_000);
+    return () => clearInterval(timer);
+  }, [userId]);
 
   // Opening reads everything; any click outside closes — navigating takes a
   // click on some link, which is outside, so the panel travels nowhere.
@@ -87,10 +149,26 @@ export const NotificationBell = () => {
             )}
             {notifications.map((item) => {
               const Icon = KIND_ICONS[item.kind] ?? Info;
+              // Job matches are the actionable kind — clicking one hands
+              // over to the Job Alerts page where the full post lives.
+              const clickable = item.kind === "job";
               return (
-                <div
+                <button
                   key={item.id}
-                  className="flex items-start gap-2.5 rounded-lg px-2.5 py-2"
+                  type="button"
+                  onClick={
+                    clickable
+                      ? () => {
+                          setOpen(false);
+                          navigate("/cv/jobs");
+                        }
+                      : undefined
+                  }
+                  className={`flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left ${
+                    clickable
+                      ? "cursor-pointer transition-colors hover:bg-white/5"
+                      : ""
+                  }`}
                 >
                   <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-sky-500/15 text-sky-300">
                     <Icon className="h-3.5 w-3.5" />
@@ -108,7 +186,7 @@ export const NotificationBell = () => {
                       {whenLabel(item.at)}
                     </p>
                   </span>
-                </div>
+                </button>
               );
             })}
           </div>

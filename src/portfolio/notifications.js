@@ -39,16 +39,21 @@ const emit = () => {
 };
 
 // Record one event — newest first, capped, starts unread. `kind` picks the
-// panel's icon ("cv" | "theme" | "info").
-export const pushNotification = ({ title, detail = "", kind = "info" }) => {
+// panel's icon ("cv" | "theme" | "info" | "job"). Pass a stable `id` to make
+// a push idempotent (the job-match poll re-runs every minute; the id is the
+// MatchedJob ItemId, so the same post never lands twice), and `at` to keep
+// the event's original time instead of the push time.
+export const pushNotification = ({ id, title, detail = "", kind = "info", at }) => {
   load();
+  const itemId = id ?? `ntf-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  if (notifications.some((item) => item.id === itemId)) return;
   notifications = [
     {
-      id: `ntf-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      id: itemId,
       title,
       detail,
       kind,
-      at: Date.now(),
+      at: at ?? Date.now(),
       read: false,
     },
     ...notifications,

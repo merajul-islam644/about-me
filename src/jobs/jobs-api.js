@@ -17,6 +17,9 @@ const JOB_FIELDS = [
   "Snippet",
   "MatchedOn",
   "IsRead",
+  // Platform column — the card's "3h ago" label and the newest-first sort
+  // both read it; the list only returns what is named here.
+  "CreatedDate",
 ];
 
 // list() selects ItemId only unless fields are passed explicitly, and wraps
@@ -109,3 +112,15 @@ export async function deleteMatchedJob(itemId) {
     throw apiError("delete", error);
   }
 }
+
+// Feed pollers pack the real source into MatchedOn as a "<source> |<keywords>"
+// marker — the gateway overwrites the Source column with a node id on
+// workflow inserts, so the marker is the trustworthy label (same mapping the
+// Job Alerts page renders as its badge).
+const SOURCE_ALIASES = { rk: "remoteok", rv: "remotive", ar: "arbeitnow" };
+
+export const jobSourceLabel = (job) => {
+  const marker = String(job?.MatchedOn ?? "").match(/^([a-z0-9]+)\s*\|\s*/);
+  if (!marker) return String(job?.Source || "webhook");
+  return SOURCE_ALIASES[marker[1]] ?? marker[1];
+};

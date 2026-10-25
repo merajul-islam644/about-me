@@ -73,15 +73,32 @@ function apiError(operation, error) {
   return new Error(`Payments ${operation} failed: ${detail || "unknown error"}`);
 }
 
+// The gateway's list filter is not trustworthy — on some collections it is
+// silently ignored and the read hands back EVERYONE's rows (proven live on
+// Portfolios). User data therefore never trusts the filter: this walks the
+// pages and matches UserId in code — the same guarantee getPortfolioRow
+// applies.
+async function listMyRequests(userId) {
+  const target = String(userId ?? "").toLowerCase();
+  const mine = [];
+  for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
+    const response = await requestCollection().list({
+      fields: REQUEST_FIELDS,
+      pageNo,
+      pageSize: 100,
+    });
+    const items = listItems(response, REQUEST_COLLECTION);
+    for (const row of items) {
+      if (String(row.UserId ?? "").toLowerCase() === target) mine.push(row);
+    }
+    if (items.length < 100) return mine;
+  }
+  return mine;
+}
+
 export async function getMyPaymentRequests(userId) {
   try {
-    const response = await requestCollection().list({
-      filter: JSON.stringify({ UserId: userId }),
-      fields: REQUEST_FIELDS,
-      pageNo: 1,
-      pageSize: 50,
-    });
-    return listItems(response, REQUEST_COLLECTION);
+    return listMyRequests(userId);
   } catch (error) {
     throw apiError("lookup", error);
   }
@@ -129,13 +146,18 @@ export async function updatePaymentRequest(itemId, patch) {
 
 export async function getPaymentSettings() {
   try {
+    // The {Key} filter gets the same distrust as every gateway filter — the
+    // row is matched in code so a ignored filter can never hand back a
+    // different settings row.
     const response = await settingCollection().list({
-      filter: JSON.stringify({ Key: PAYMENT_SETTINGS_KEY }),
       fields: SETTING_FIELDS,
       pageNo: 1,
-      pageSize: 5,
+      pageSize: 100,
     });
-    return listItems(response, SETTING_COLLECTION)[0] ?? null;
+    const rows = listItems(response, SETTING_COLLECTION);
+    return (
+      rows.find((row) => String(row.Key ?? "") === PAYMENT_SETTINGS_KEY) ?? null
+    );
   } catch (error) {
     throw apiError("settings lookup", error);
   }

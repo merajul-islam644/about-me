@@ -7,7 +7,7 @@ import { blocksClient } from "../lib/blocks/client";
 const PREF_SCHEMA = "JobPreference";
 const JOB_SCHEMA = "MatchedJob";
 
-const PREF_FIELDS = ["ItemId", "UserId", "Keywords", "Sources"];
+const PREF_FIELDS = ["ItemId", "UserId", "Keywords", "Sources", "CreatedDate"];
 const JOB_FIELDS = [
   "ItemId",
   "UserId",
@@ -45,15 +45,43 @@ function apiError(operation, error) {
 const prefCollection = () => blocksClient.data.collection(PREF_SCHEMA);
 const jobCollection = () => blocksClient.data.collection(JOB_SCHEMA);
 
+// The gateway's list filter is not trustworthy — on some collections it is
+// silently ignored and the read hands back EVERYONE's rows (proven live on
+// Portfolios). User data therefore never trusts the filter: this walks the
+// pages and matches UserId in code — the same guarantee getPortfolioRow
+// applies. 20 pages × 100 rows is far beyond any real volume here.
+async function listMine(collection, collectionName, fields, userId, pageSize) {
+  const target = String(userId ?? "").toLowerCase();
+  const mine = [];
+  for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
+    const response = await collection.list({ fields, pageNo, pageSize });
+    const items = listItems(response, collectionName);
+    for (const row of items) {
+      if (String(row.UserId ?? "").toLowerCase() === target) mine.push(row);
+    }
+    if (items.length < pageSize) return mine;
+  }
+  return mine;
+}
+
 export async function getJobPreference(userId) {
   try {
-    const response = await prefCollection().list({
-      filter: JSON.stringify({ UserId: userId }),
-      fields: PREF_FIELDS,
-      pageNo: 1,
-      pageSize: 5,
-    });
-    return listItems(response, "JobPreferences")[0] ?? null;
+    const mine = await listMine(
+      prefCollection(),
+      "JobPreferences",
+      PREF_FIELDS,
+      userId,
+      100
+    );
+    // A first-visit race can leave duplicate rows (no unique index guards
+    // UserId here): the OLDEST row wins — it is the one keywords were
+    // saved into.
+    mine.sort(
+      (a, b) =>
+        (Date.parse(a.CreatedDate ?? "") || 0) -
+        (Date.parse(b.CreatedDate ?? "") || 0)
+    );
+    return mine[0] ?? null;
   } catch (error) {
     throw apiError("preferences lookup", error);
   }
@@ -75,8 +103,13 @@ export async function ensureJobPreference(userId) {
   if (existing) return existing;
   try {
     await prefCollection().create({ UserId: userId, Keywords: "", Sources: "" });
-  } catch {
-    // A race with another tab's create — the row exists now either way.
+  } catch (createError) {
+    // A race with another tab's create is fine — the row exists now either
+    // way. Any OTHER failure must reach the user verbatim: a swallowed one
+    // here showed as the opaque "could not be created".
+    const retry = await getJobPreference(userId);
+    if (!retry) throw apiError("preferences create", createError);
+    return retry;
   }
   const created = await getJobPreference(userId);
   if (!created) throw new Error("Job preferences row could not be created.");
@@ -85,13 +118,7 @@ export async function ensureJobPreference(userId) {
 
 export async function getMatchedJobs(userId) {
   try {
-    const response = await jobCollection().list({
-      filter: JSON.stringify({ UserId: userId }),
-      fields: JOB_FIELDS,
-      pageNo: 1,
-      pageSize: 100,
-    });
-    return listItems(response, "MatchedJobs");
+    return listMine(jobCollection(), "MatchedJobs", JOB_FIELDS, userId, 100);
   } catch (error) {
     throw apiError("lookup", error);
   }

@@ -24,10 +24,14 @@ export const ModeTabs = () => {
         const Icon = mode.icon;
         const active = mode.key === current.key;
         const label = mode.key === "cv" && (viewer || guest) ? "My CV" : mode.label;
+        // For the signed-in builder the CV tab opens the shelf — the My CV
+        // page — so one click lands with the My CV menu already highlighted;
+        // visitors, guests and viewers keep the showcase CV at /cv.
+        const to = mode.key === "cv" && canEdit ? "/cv/library" : mode.to;
         return (
           <Link
             key={mode.key}
-            to={mode.to}
+            to={to}
             aria-current={active ? "page" : undefined}
             className={`inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${
               active ? "bg-sky-500 text-white" : "text-gray-300 hover:text-sky-300"

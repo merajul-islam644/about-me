@@ -81,6 +81,18 @@ export const visitorPortfolio = {
   version: CONTENT_VERSION,
   brand: "Jon Doe",
   hero: { ...merajPortfolio.hero, greeting: "Hi, I'm Jon Doe" },
+  // The spread drags in Meraj's real About paragraph, employer name
+  // included — the public persona swaps in an example company instead.
+  about: {
+    ...merajPortfolio.about,
+    paragraphs: [
+      {
+        text: "I am a **Software Engineering Intern at Contoso Ltd.**, building scalable and modern web applications. I enjoy solving challenging problems, learning new technologies, and creating user-friendly solutions that make a real impact.",
+        accentClass: "font-semibold text-white",
+      },
+      ...merajPortfolio.about.paragraphs.slice(1),
+    ],
+  },
   // The Projects page needs something to show — three sample works (the
   // same ones the sample CV lists, so the site agrees with itself) under
   // the Jon Doe persona. Meraj's own seed above keeps its real list.
@@ -139,7 +151,7 @@ export const visitorPortfolio = {
         items: [
           {
             heading: "Software Engineering Intern",
-            sub: "SELISE Group — Dhaka, Bangladesh",
+            sub: "Contoso Ltd. — Dhaka, Bangladesh",
             period: "Feb 2025 — Present",
             details:
               "• Build and maintain production React features for an enterprise platform\n• Collaborate with senior engineers on code review, testing and CI\n• Delivered shared design-system components now used by three teams",

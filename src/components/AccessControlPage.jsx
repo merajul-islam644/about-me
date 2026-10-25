@@ -13,6 +13,7 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useAuth, rolesToSlugs } from "../auth/auth-context";
 import { MERAJ_USER_ID } from "../content/merajPortfolio";
 import { ModeTabs } from "./ModeTabs";
@@ -1634,9 +1635,17 @@ const GuestLinksTab = ({ roles = [], meId }) => {
   );
 };
 
+const TAB_KEYS = ["users", "roles", "guests"];
+
 const AccessControlPage = () => {
   const { profile } = useAuth();
-  const [tab, setTab] = useState("users");
+  // The tab lives in the URL (/profile/access/roles) so a refresh or a
+  // shared link reopens the same tab; a missing or unknown segment —
+  // including plain /profile/access — falls back to Users.
+  const { tab: tabParam } = useParams();
+  const navigate = useNavigate();
+  const tab = TAB_KEYS.includes(tabParam ?? "") ? tabParam : "users";
+  const setTab = (key) => navigate(`/profile/access/${key}`);
   const [booting, setBooting] = useState(true);
   const [bootError, setBootError] = useState("");
   const [roles, setRoles] = useState([]);

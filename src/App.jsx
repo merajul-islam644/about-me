@@ -122,6 +122,9 @@ const App = () => {
           }
         >
           <Route index element={<AccessControlPage />} />
+          {/* The tab segment keeps a refresh (or a shared link) on the same
+              tab: /profile/access/users, /roles, /guests. */}
+          <Route path=":tab" element={<AccessControlPage />} />
         </Route>
         <Route
           path="/login"

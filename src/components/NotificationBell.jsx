@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bell, Briefcase, FileText, Info, Palette, Trash2 } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
-import { pushNotification, useNotifications } from "../portfolio/notifications";
+import { pushNotification, setNotificationsUser, useNotifications } from "../portfolio/notifications";
 import { getMatchedJobs, jobSourceLabel } from "../jobs/jobs-api";
 
 const KIND_ICONS = {
@@ -42,6 +42,13 @@ export const NotificationBell = () => {
   const member = status === "authenticated" && Boolean(userId);
   const feed = member ? notifications : [];
   const badge = member ? unread : 0;
+
+  // Point the feed module at this account's store — the bell is the one
+  // always-mounted reader, so switching users here re-keys every read,
+  // write, and push to the signed-in user's own feed.
+  useEffect(() => {
+    setNotificationsUser(userId);
+  }, [userId]);
 
   // Job matches ride the same feed: every minute the owner's matched posts
   // are diffed against a per-user, per-device seen set — anything new lands

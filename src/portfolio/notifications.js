@@ -1,22 +1,29 @@
 import { useEffect, useState } from "react";
 
-// A tiny per-device notification feed: app events push short notes here and
+// A tiny per-user notification feed: app events push short notes here and
 // the navbar bell shows them. Everything is local (localStorage, guarded at
 // every touch) — there is no server inbox to sync with, so clearing storage
-// clears the feed and that is by design.
+// clears the feed and that is by design. The store is namespaced per signed-in
+// user: whoever is active sees only their own feed, never another account's
+// leftovers on the same browser.
 
-const STORAGE_KEY = "app.notifications";
+const STORAGE_BASE = "app.notifications";
 const MAX_NOTIFICATIONS = 20;
 
-// The one shared list, lazy-loaded once per page load; every mutation
+// The user whose feed is active — set by setNotificationsUser from the bell
+// (the one component that knows the signed-in identity). Empty until then.
+let activeUser = "";
+// The active user's list, lazy-loaded once per switch; every mutation
 // replaces it with a fresh array so React subscribers see a new snapshot.
 let notifications = null;
 const subscribers = new Set();
 
+const storageKey = () => `${STORAGE_BASE}.${activeUser || "anonymous"}`;
+
 const load = () => {
   if (notifications) return notifications;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey());
     notifications = raw ? JSON.parse(raw) : [];
   } catch {
     notifications = [];
@@ -27,15 +34,26 @@ const load = () => {
 
 const persist = () => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(notifications));
+    localStorage.setItem(storageKey(), JSON.stringify(notifications));
   } catch {
     /* storage blocked — the in-memory feed still works this visit */
   }
 };
 
 const emit = () => {
-  const snapshot = [...notifications];
+  const snapshot = [...load()];
   subscribers.forEach((listener) => listener(snapshot));
+};
+
+// Swap the feed to another account's store (sign-in, sign-out, account
+// switch). Forces a reload from that user's key and pushes the new snapshot
+// to every open bell.
+export const setNotificationsUser = (userId) => {
+  const next = String(userId ?? "");
+  if (next === activeUser) return;
+  activeUser = next;
+  notifications = null;
+  emit();
 };
 
 // Record one event — newest first, capped, starts unread. `kind` picks the

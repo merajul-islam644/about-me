@@ -1,3 +1,5 @@
+import { blocksConfig } from "./config";
+
 // Sends a contact-form message to the portfolio owner's inbox through the
 // "Contact Mail Gate" webhook (logic workflow), NOT the SDK's mail client —
 // that path is authenticated, so every signed-out visitor (and guest-link
@@ -29,7 +31,10 @@ const asciiSafe = (text) =>
 // The webhook replies { executionId, status, data: [ lastNodeOutput ] } —
 // data[0] is { isSuccess: true } or { isSuccess: false, errors }.
 // Browser requests carry an Origin, which the platform rejects (406)
-// unless the public project key rides along as x-blocks-key.
+// unless the public project key rides along as x-blocks-key. Read through
+// blocksConfig, not import.meta.env — the deployed bundle has no build-time
+// env; the key lives in window.__ENV__ (written to /env.js at container
+// start), and blocksConfig is the one place that merges both sources.
 export async function sendContactEmail({ fromName, fromEmail, message, website = "" }) {
   let response;
   try {
@@ -37,7 +42,7 @@ export async function sendContactEmail({ fromName, fromEmail, message, website =
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-blocks-key": import.meta.env.VITE_BLOCKS_PROJECT_KEY,
+        "x-blocks-key": blocksConfig.xBlocksKey,
       },
       body: JSON.stringify({
         fromName: asciiSafe(fromName),

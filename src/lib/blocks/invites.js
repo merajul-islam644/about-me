@@ -1,4 +1,5 @@
 import { blocksClient } from "./client";
+import { blocksConfig } from "./config";
 
 // Guest invite links: the owner mints a random token into the Invites
 // collection, and a signed-out visitor carrying it reads the owner's
@@ -95,7 +96,8 @@ export function inviteLinkFor(token) {
 // dead one (INVITE_NOT_FOUND / INVITE_REVOKED / INVITE_EXPIRED). Browser
 // requests carry an Origin, and the platform rejects those (406) unless the
 // public project key rides along — the same x-blocks-key every other
-// browser call already sends.
+// browser call already sends, read through blocksConfig (the deployed
+// bundle has no build-time env; import.meta.env would bake `undefined`).
 export async function fetchGuestContent(token) {
   let response;
   try {
@@ -103,7 +105,7 @@ export async function fetchGuestContent(token) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-blocks-key": import.meta.env.VITE_BLOCKS_PROJECT_KEY,
+        "x-blocks-key": blocksConfig.xBlocksKey,
       },
       body: JSON.stringify({ token }),
     });

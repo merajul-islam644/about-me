@@ -28,16 +28,29 @@ function apiError(operation, error) {
   return new Error(`Portfolio ${operation} failed: ${detail || "unknown error"}`);
 }
 
+// The gateway's list silently IGNORES the {Field: value} filter shape
+// (proven live on the Invites reads — the filter changes nothing), so this
+// lookup used to return EVERY row and take items[0] — the OLDEST row in the
+// collection, Meraj's — handing a brand-new user his whole portfolio, and
+// worse, his ItemId as a save/delete target (proven live 2026-10-25). Match
+// client-side instead: walk the pages and find OUR UserId.
 export async function getPortfolioRow(userId) {
+  const target = String(userId ?? "").toLowerCase();
   try {
-    const response = await collection().list({
-      filter: JSON.stringify({ UserId: userId }),
-      fields: FIELDS,
-      pageNo: 1,
-      pageSize: 5,
-    });
-    const items = listItems(response);
-    return items[0] ?? null;
+    for (let pageNo = 1; pageNo <= 20; pageNo += 1) {
+      const response = await collection().list({
+        fields: FIELDS,
+        pageNo,
+        pageSize: 100,
+      });
+      const items = listItems(response);
+      const match = items.find(
+        (row) => String(row.UserId ?? "").toLowerCase() === target
+      );
+      if (match) return match;
+      if (items.length < 100) return null;
+    }
+    return null;
   } catch (error) {
     throw apiError("lookup", error);
   }

@@ -133,12 +133,26 @@ export const STANDARD_SECTIONS = [
   { title: "References", type: "text" },
 ];
 
+// The fillable outline a brand-new CV opens with: every standard section
+// present with empty items, so the document reads as a skeleton to grow on
+// /cv — never a bare headline floating over nothing.
+const standardSectionSkeleton = () =>
+  STANDARD_SECTIONS.map((section) => ({
+    id: newId("cvs"),
+    type: section.type,
+    title: section.title,
+    page: "intro",
+    items: [],
+  }));
+
 // CV-mode hero defaults — derived from the portfolio's own hero so every
 // user's CV view starts personal (same title, skills and picture) with a
 // CV-flavored greeting and summary. The CV editor grows more sections later.
 // Exported so the editor can seed a brand-new CV with the same guarantees.
 // `contact` is the personal-information strip (city, phone, email, one
 // optional link) under the headline — empty until the owner fills it in.
+// `sections` is the standard skeleton, so a synthesized first CV (a row
+// with no CV of its own yet) opens as a fillable document, not headline-only.
 export const defaultCvFor = (base) => ({
   greeting: "Curriculum Vitae",
   design: DEFAULT_CV_DESIGN,
@@ -149,6 +163,7 @@ export const defaultCvFor = (base) => ({
   },
   skills: base.hero.skills,
   contact: { location: "", phone: "", email: "", link: "" },
+  sections: standardSectionSkeleton(),
 });
 
 // A brand-new CV seeds the standard section skeleton — every standard
@@ -162,13 +177,6 @@ export const createFreshCv = (content, name = "") => {
     id: newId("cv"),
     name: name.trim() || `CV ${list.length + 1}`,
     ...defaultCvFor({ hero: content.hero }),
-    sections: STANDARD_SECTIONS.map((section) => ({
-      id: newId("cvs"),
-      type: section.type,
-      title: section.title,
-      page: "intro",
-      items: [],
-    })),
   };
 };
 
@@ -537,14 +545,16 @@ export function normalizeContent(raw, fallback = lastResortContent) {
         skills: activePortfolio.hero.skills,
       },
     });
-  // An explicitly empty `cvs` stays empty — the owner deleted every CV and
-  // the shelf shows its empty state. Only rows without a `cvs` array at all
-  // adopt the legacy single CV, or get a synthesized first one.
+  // A row with no CV of its own — a brand-new user — starts with an EMPTY
+  // shelf: no synthesized starter card, the empty state invites the first
+  // "New CV". The legacy single `cv` is still adopted so nothing is lost.
+  // (Until 2026-10-25 a starter CV was synthesized here; the owner asked
+  // for the honest empty state instead.)
   const rawCvs = Array.isArray(raw_.cvs)
     ? raw_.cvs
     : raw_.cv
       ? [raw_.cv]
-      : [cvFallback];
+      : [];
   const cvs = rawCvs.map((cv, index) => ({
     ...normalizeCv(cv, cvFallback),
     id: typeof cv?.id === "string" && cv.id ? cv.id : `cv-${index + 1}`,

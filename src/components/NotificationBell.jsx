@@ -33,8 +33,15 @@ export const NotificationBell = () => {
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { status, profile } = useAuth();
   const userId = profile?.userId;
+  // The bell is member-only on the inside: a signed-out visitor sees the
+  // icon but never a count or a feed item — whatever this device stored
+  // belongs to the account that was signed in, so it stays hidden until
+  // someone signs in again.
+  const member = status === "authenticated" && Boolean(userId);
+  const feed = member ? notifications : [];
+  const badge = member ? unread : 0;
 
   // Job matches ride the same feed: every minute the owner's matched posts
   // are diffed against a per-user, per-device seen set — anything new lands
@@ -95,7 +102,9 @@ export const NotificationBell = () => {
   // click on some link, which is outside, so the panel travels nowhere.
   // Same mechanics as the avatar menu beside it.
   useEffect(() => {
-    if (!open) return undefined;
+    // Members only — a visitor opening the panel must not mark the device's
+    // stored (invisible) feed as read on behalf of the signed-in account.
+    if (!open || !member) return undefined;
     markAllRead();
     const onOutside = (event) => {
       if (panelRef.current && !panelRef.current.contains(event.target)) {
@@ -104,7 +113,7 @@ export const NotificationBell = () => {
     };
     document.addEventListener("mousedown", onOutside);
     return () => document.removeEventListener("mousedown", onOutside);
-  }, [open, markAllRead]);
+  }, [open, member, markAllRead]);
 
   return (
     <div className="relative" ref={panelRef}>
@@ -113,14 +122,14 @@ export const NotificationBell = () => {
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="true"
         aria-expanded={open}
-        aria-label={`Notifications${unread ? ` (${unread} unread)` : ""}`}
+        aria-label={`Notifications${badge ? ` (${badge} unread)` : ""}`}
         title="Notifications"
         className="relative cursor-pointer rounded-full border border-white/10 p-2 text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300"
       >
         <Bell className="h-4 w-4" />
-        {unread > 0 && (
+        {badge > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-sky-500 px-1 text-[10px] font-bold text-white">
-            {unread > 9 ? "9+" : unread}
+            {badge > 9 ? "9+" : badge}
           </span>
         )}
       </button>
@@ -130,7 +139,7 @@ export const NotificationBell = () => {
             <p className="text-sm font-semibold text-gray-100">
               Notifications
             </p>
-            {notifications.length > 0 && (
+            {feed.length > 0 && (
               <button
                 type="button"
                 onClick={clearNotifications}
@@ -141,13 +150,14 @@ export const NotificationBell = () => {
             )}
           </div>
           <div className="max-h-80 overflow-y-auto p-2">
-            {notifications.length === 0 && (
+            {feed.length === 0 && (
               <p className="px-2 py-6 text-center text-xs leading-relaxed text-gray-500">
-                Nothing yet — create a CV or change its theme and it lands
-                here.
+                {member
+                  ? "Nothing yet — create a CV or change its theme and it lands here."
+                  : "Notifications collect here once you sign in."}
               </p>
             )}
-            {notifications.map((item) => {
+            {feed.map((item) => {
               const Icon = KIND_ICONS[item.kind] ?? Info;
               // Job matches are the actionable kind — clicking one hands
               // over to the Job Alerts page where the full post lives.

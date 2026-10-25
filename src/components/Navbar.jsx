@@ -105,8 +105,10 @@ const Navbar = () => {
           </ul>
 
           {/* The bell sits just left of the account area — the avatar when
-              signed in, the Sign in button for visitors. Viewers and guests
-              don't get it: neither holds an account to notify. */}
+              signed in, the Sign in button for visitors. Signed-out visitors
+              and cloudusers see it; viewers and guests get none. Visitors
+              get the icon only — the count and the feed itself stay
+              member-only inside NotificationBell. */}
           {!viewer && !guest && <NotificationBell />}
 
           {/* Visitors: Sign in sits right of the bell, mirroring where the

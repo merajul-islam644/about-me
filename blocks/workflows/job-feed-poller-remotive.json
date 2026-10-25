@@ -8,15 +8,24 @@
       "category": "trigger",
       "type": "webhook",
       "version": "v1",
-      "position": { "x": 0, "y": 0 },
+      "position": {
+        "x": 0,
+        "y": 0
+      },
       "parameters": {
         "httpMethod": "POST",
         "authType": "none",
         "httpResponseMode": "last",
         "httpResponseData": "all",
         "organizationId": "",
-        "roles": { "operator": "all", "values": [] },
-        "permissions": { "operator": "any", "values": [] },
+        "roles": {
+          "operator": "all",
+          "values": []
+        },
+        "permissions": {
+          "operator": "any",
+          "values": []
+        },
         "authorizationMode": "RolesOnly",
         "path": "poll-hook-remotive"
       },
@@ -29,13 +38,18 @@
       "category": "action",
       "type": "httpRequest",
       "version": "v1",
-      "position": { "x": 200, "y": 0 },
+      "position": {
+        "x": 200,
+        "y": 0
+      },
       "parameters": {
         "httpMethod": "POST",
         "url": "https://blocksapi.slsblx.com/data/v4/gateway",
         "haveQueryParameters": false,
         "haveHeaders": true,
-        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "headers": {
+          "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a"
+        },
         "authenticationType": "clientCredential",
         "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
         "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
@@ -52,7 +66,10 @@
       "category": "action",
       "type": "proxy",
       "version": "v1",
-      "position": { "x": 400, "y": 0 },
+      "position": {
+        "x": 400,
+        "y": 0
+      },
       "parameters": {
         "slug": "rvfeed",
         "routeMethod": "GET",
@@ -69,13 +86,18 @@
       "category": "action",
       "type": "httpRequest",
       "version": "v1",
-      "position": { "x": 600, "y": 0 },
+      "position": {
+        "x": 600,
+        "y": 0
+      },
       "parameters": {
         "httpMethod": "POST",
         "url": "https://blocksapi.slsblx.com/data/v4/gateway",
         "haveQueryParameters": false,
         "haveHeaders": true,
-        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "headers": {
+          "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a"
+        },
         "authenticationType": "clientCredential",
         "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
         "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
@@ -92,11 +114,14 @@
       "category": "transform",
       "type": "code",
       "version": "v1",
-      "position": { "x": 800, "y": 0 },
+      "position": {
+        "x": 800,
+        "y": 0
+      },
       "parameters": {
         "mode": "all",
         "language": "js",
-        "script": "// Poller (Remotive): fetch feed via proxy, dedup against saved rows, match keywords.\nvar now = Date.now();\nvar CUT = 48 * 60 * 60 * 1000;\nfunction nodeJson(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var j = n.json ?? null;\n  if (j && typeof j === \"object\" && Object.keys(j).length > 0) return j;\n  try {\n    var al = (typeof n.all === \"function\") ? n.all() : n.all;\n    if (Array.isArray(al) && al.length) {\n      var x = (al[0] ?? {}).json ?? al[0];\n      if (x && typeof x === \"object\" && Object.keys(x).length > 0) return x;\n    }\n  } catch (e) {}\n  return {};\n}\nvar prefNode = nodeJson(\"Get Preferences\");\nvar prefResp = prefNode.output ?? prefNode;\nvar prefItems = ((((prefResp.data ?? {}).getJobPreferences ?? {}).items) ?? []);\nvar keywords = [];\nvar userId = \"\";\nfor (var i = 0; i < prefItems.length; i++) {\n  var row = prefItems[i] ?? {};\n  var u = String(row.UserId ?? \"\");\n  var ks = String(row.Keywords ?? \"\").split(\",\").map(function (k) { return k.trim().toLowerCase(); }).filter(Boolean);\n  if (u && ks.length && !userId) userId = u;\n  for (var j = 0; j < ks.length; j++) if (keywords.indexOf(ks[j]) < 0) keywords.push(ks[j]);\n}\nif (!keywords.length || !userId) return [{ hit: false, dbg: \"noprefs pc=\" + prefItems.length + \" kw=\" + keywords.join(\"|\") + \" uid=\" + (userId ? \"Y\" : \"N\") }];\nvar exNode = nodeJson(\"Existing Jobs\");\nvar exResp = exNode.output ?? exNode;\nvar exItems = ((((exResp.data ?? {}).getMatchedJobs ?? {}).items) ?? []);\nvar seen = {};\nfor (var e = 0; e < exItems.length; e++) {\n  var k0 = String((exItems[e] ?? {}).Url ?? \"\").trim().toLowerCase();\n  if (k0) seen[k0] = true;\n}\nfunction stripHtml(s) {\n  return String(s ?? \"\").replace(/<[^>]*>/g, \" \").split(\" \").filter(Boolean).join(\" \");\n}\nfunction allOf(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var al = (typeof n.all === \"function\") ? n.all() : n.all;\n  al = Array.isArray(al) ? al : [];\n  var arr = [];\n  for (var q = 0; q < al.length; q++) {\n    var x = (al[q] ?? {}).json ?? al[q];\n    if (x) arr.push(x);\n  }\n  return arr;\n}\nvar posts = [];\nvar rvCand = allOf(\"Remotive Feed\");\nvar rvBody = {};\nfor (var rvi = 0; rvi < rvCand.length; rvi++) {\n  if (rvCand[rvi] && typeof rvCand[rvi] === \"object\" && Array.isArray(rvCand[rvi].jobs)) { rvBody = rvCand[rvi]; break; }\n}\nvar rvArr = rvBody.jobs ?? [];\nfor (var b = 0; b < rvArr.length; b++) {\n  var jt = rvArr[b] ?? {};\n  var pd = Date.parse(String(jt.publication_date ?? \"\"));\n  if (pd && now - pd > CUT) continue;\n  posts.push({ title: String(jt.title ?? \"\"), company: String(jt.company_name ?? \"\"), url: String(jt.url ?? \"\"), snippet: stripHtml(jt.description).slice(0, 300), ts: pd || 0 });\n}\nposts.sort(function (x, y) { return (y.ts || 0) - (x.ts || 0); });\nvar out = [];\nvar runSeen = {};\nfor (var p = 0; p < posts.length && out.length < 10; p++) {\n  var post = posts[p];\n  var key = String(post.url ?? \"\").trim().toLowerCase();\n  if (!key || seen[key] || runSeen[key]) continue;\n  runSeen[key] = true;\n  var hay = (post.title + \" \" + post.company + \" \" + post.snippet).toLowerCase();\n  var matched = [];\n  for (var m = 0; m < keywords.length; m++) if (hay.indexOf(keywords[m]) >= 0) matched.push(keywords[m]);\n  if (!matched.length) continue;\n  out.push({ hit: true, userId: userId, title: (post.title || \"Untitled post\").slice(0, 140), snippet: post.snippet, url: post.url, matchedOn: \"rv |\" + matched.join(\", \") });\n}\nif (out.length) return out;\nreturn [{ hit: false, dbg: JSON.stringify({ pc: prefItems.length, rv: rvArr.length, ex: exItems.length, p48: posts.length }).slice(0, 500) }];"
+        "script": "// Poller (Remotive): fetch feed via proxy, dedup against saved rows, match keywords.\nvar now = Date.now();\nvar CUT = 48 * 60 * 60 * 1000;\nfunction nodeJson(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var j = n.json ?? null;\n  if (j && typeof j === \"object\" && Object.keys(j).length > 0) return j;\n  try {\n    var al = (typeof n.all === \"function\") ? n.all() : n.all;\n    if (Array.isArray(al) && al.length) {\n      var x = (al[0] ?? {}).json ?? al[0];\n      if (x && typeof x === \"object\" && Object.keys(x).length > 0) return x;\n    }\n  } catch (e) {}\n  return {};\n}\nvar prefNode = nodeJson(\"Get Preferences\");\nvar prefResp = prefNode.output ?? prefNode;\nvar prefItems = ((((prefResp.data ?? {}).getJobPreferences ?? {}).items) ?? []);\nvar prefs = [];\nfor (var i = 0; i < prefItems.length; i++) {\n  var row = prefItems[i] ?? {};\n  var u = String(row.UserId ?? \"\");\n  var ks = String(row.Keywords ?? \"\").split(\",\").map(function (k) { return k.trim().toLowerCase(); }).filter(Boolean);\n  if (u && ks.length) prefs.push({ userId: u, ks: ks });\n}\nif (!prefs.length) return [{ hit: false, dbg: \"noprefs pc=\" + prefItems.length }];\nvar exNode = nodeJson(\"Existing Jobs\");\nvar exResp = exNode.output ?? exNode;\nvar exItems = ((((exResp.data ?? {}).getMatchedJobs ?? {}).items) ?? []);\nvar seen = {};\nfor (var e = 0; e < exItems.length; e++) {\n  var ex = exItems[e] ?? {};\n  var k0 = String(ex.Url ?? \"\").trim().toLowerCase();\n  if (k0) seen[String(ex.UserId ?? \"\") + \"|\" + k0] = true;\n}\nfunction stripHtml(s) {\n  return String(s ?? \"\").replace(/<[^>]*>/g, \" \").split(\" \").filter(Boolean).join(\" \");\n}\nfunction allOf(nodeName) {\n  var n = $node[nodeName] ?? {};\n  var al = (typeof n.all === \"function\") ? n.all() : n.all;\n  al = Array.isArray(al) ? al : [];\n  var arr = [];\n  for (var q = 0; q < al.length; q++) {\n    var x = (al[q] ?? {}).json ?? al[q];\n    if (x) arr.push(x);\n  }\n  return arr;\n}\nvar posts = [];\nvar rvCand = allOf(\"Remotive Feed\");\nvar rvBody = {};\nfor (var rvi = 0; rvi < rvCand.length; rvi++) {\n  if (rvCand[rvi] && typeof rvCand[rvi] === \"object\" && Array.isArray(rvCand[rvi].jobs)) { rvBody = rvCand[rvi]; break; }\n}\nvar rvArr = rvBody.jobs ?? [];\nfor (var b = 0; b < rvArr.length; b++) {\n  var jt = rvArr[b] ?? {};\n  var pd = Date.parse(String(jt.publication_date ?? \"\"));\n  if (pd && now - pd > CUT) continue;\n  posts.push({ title: String(jt.title ?? \"\"), company: String(jt.company_name ?? \"\"), url: String(jt.url ?? \"\"), snippet: stripHtml(jt.description).slice(0, 300), ts: pd || 0 });\n}\nposts.sort(function (x, y) { return (y.ts || 0) - (x.ts || 0); });\nvar out = [];\nvar runSeen = {};\nfor (var p = 0; p < posts.length && out.length < 10; p++) {\n  var post = posts[p];\n  var key = String(post.url ?? \"\").trim().toLowerCase();\n  if (!key) continue;\n  var hay = (post.title + \" \" + post.company + \" \" + post.snippet).toLowerCase();\n  for (var u2 = 0; u2 < prefs.length && out.length < 10; u2++) {\n    var ukey = prefs[u2].userId + \"|\" + key;\n    if (seen[ukey] || runSeen[ukey]) continue;\n    var matched = [];\n    for (var m = 0; m < prefs[u2].ks.length; m++) if (hay.indexOf(prefs[u2].ks[m]) >= 0) matched.push(prefs[u2].ks[m]);\n    if (!matched.length) continue;\n    runSeen[ukey] = true;\n    out.push({ hit: true, userId: prefs[u2].userId, title: (post.title || \"Untitled post\").slice(0, 140), snippet: post.snippet, url: post.url, matchedOn: \"rv |\" + matched.join(\", \") });\n  }\n}\nif (out.length) return out;\nreturn [{ hit: false, dbg: JSON.stringify({ pc: prefItems.length, rv: rvArr.length, ex: exItems.length, p48: posts.length }).slice(0, 500) }];"
       },
       "settings": {},
       "pinData": null
@@ -107,7 +132,10 @@
       "category": "logic",
       "type": "if",
       "version": "v1",
-      "position": { "x": 1000, "y": 0 },
+      "position": {
+        "x": 1000,
+        "y": 0
+      },
       "parameters": {
         "conditionType": "all",
         "conditions": [
@@ -128,13 +156,18 @@
       "category": "action",
       "type": "httpRequest",
       "version": "v1",
-      "position": { "x": 1200, "y": -80 },
+      "position": {
+        "x": 1200,
+        "y": -80
+      },
       "parameters": {
         "httpMethod": "POST",
         "url": "https://blocksapi.slsblx.com/data/v4/gateway",
         "haveQueryParameters": false,
         "haveHeaders": true,
-        "headers": { "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a" },
+        "headers": {
+          "x-blocks-key": "D4f8caef7566149768aad0a6b61d7d48a"
+        },
         "authenticationType": "clientCredential",
         "clientId": "d0319acd-bf6e-43e8-ae7d-b303ea9f5432",
         "clientSecret": "__JOB_ALERT_CLIENT_SECRET__",
@@ -147,11 +180,47 @@
     }
   ],
   "edges": [
-    { "id": "e1", "source": "tick", "target": "prefs", "sourceHandle": "source", "targetHandle": "target" },
-    { "id": "e2", "source": "prefs", "target": "remotive", "sourceHandle": "source", "targetHandle": "target" },
-    { "id": "e3", "source": "remotive", "target": "existing", "sourceHandle": "source", "targetHandle": "target" },
-    { "id": "e5", "source": "existing", "target": "process", "sourceHandle": "source", "targetHandle": "target" },
-    { "id": "e6", "source": "process", "target": "ismatch", "sourceHandle": "source", "targetHandle": "target" },
-    { "id": "e7", "source": "ismatch", "target": "save", "sourceHandle": "if-true", "targetHandle": "target" }
+    {
+      "id": "e1",
+      "source": "tick",
+      "target": "prefs",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e2",
+      "source": "prefs",
+      "target": "remotive",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e3",
+      "source": "remotive",
+      "target": "existing",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e5",
+      "source": "existing",
+      "target": "process",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e6",
+      "source": "process",
+      "target": "ismatch",
+      "sourceHandle": "source",
+      "targetHandle": "target"
+    },
+    {
+      "id": "e7",
+      "source": "ismatch",
+      "target": "save",
+      "sourceHandle": "if-true",
+      "targetHandle": "target"
+    }
   ]
 }

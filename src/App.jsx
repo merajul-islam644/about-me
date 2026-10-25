@@ -138,6 +138,9 @@ const App = () => {
             showcase it unlocks. No guard either: the whole point is entering
             without signing in. */}
         <Route path="/invite/:token" element={<InviteLanding />} />
+        {/* Anything else — a typo'd or stale deep link — lands on the
+            showcase instead of a blank page under the navbar. */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       {/* The chat launcher floats over every page — it lives outside the
           Routes so route changes never unmount an ongoing conversation. */}

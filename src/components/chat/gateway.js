@@ -364,6 +364,37 @@ const streamSSE = async (response, onEvent) => {
 
 const MAX_TOOL_ROUNDS = 4;
 
+// The system prompt every brain starts from: Robi's persona, who is on the
+// other side (as verified by the app's own auth), where they are sitting,
+// and a nudge to actually use the tools on offer — without which smaller
+// models answer "click the About link" instead of jumping. The tool list is
+// built from the handlers really being offered, so it never advertises a
+// missing tool.
+const buildSystem = (
+  content,
+  { handlers = {}, audience = null, viewer = null, currentPage = "" } = {},
+) =>
+  [
+    systemPromptFor(content, audience || (viewer ? "member" : "visitor")),
+    // Who is on the other side, as verified by the app's own auth — not just
+    // claimed in chat. An editor owns the content; a viewer reads it
+    // read-only; a visitor gets site talk only.
+    audience === "viewer" && viewer
+      ? `You are talking to a SIGNED-IN VIEWER${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, and they see the whole portfolio READ-ONLY: they may read, download and ask about everything here, but neither they nor you can edit the owner's content — never promise changes, saves or new CVs to them.`
+      : viewer
+        ? `You are talking to a SIGNED-IN member${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, so you may share THEIR OWN account-related details — their name, email, and their portfolio content — and help with account things.`
+        : `You are talking to a VISITOR who is NOT signed in. Stick to site-related questions; never invent or reveal any account details, and if they ask about "their account", kindly tell them to sign in first via the Login option in the navbar.`,
+    // Where the visitor is sitting right now — the model otherwise answers
+    // "which page am I on" with a guess.
+    currentPage && `The visitor is currently viewing: ${currentPage}.`,
+    TOOL_SCHEMAS.some((tool) => handlers?.[tool.name]) &&
+      `Your tools (${TOOL_SCHEMAS.filter((tool) => handlers?.[tool.name])
+        .map((tool) => tool.name)
+        .join(", ")}) take real actions in the visitor's browser. When a request matches one — going to a page, copying a link or the email, handing over the CV file — call the tool and confirm the result, instead of telling the visitor to do it themselves.`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
 // One conversation turn-set in ({from, text} messages). Resolves to
 // { text, usage: {input, output} | null, thinkMs | null } — the model's
 // final text, the token accounting, and how long it thought before its
@@ -393,30 +424,7 @@ export const callGateway = async (
 
   const provider = gateway.provider === "openai" ? "openai" : "anthropic";
   const tools = providerTools(Object.keys(handlers), provider);
-  // Nudge the model to actually USE its tools — without this, smaller models
-  // answer "click the About link" instead of jumping. The list is built from
-  // the handlers really being offered, so it never advertises a missing tool.
-  const available = TOOL_SCHEMAS.filter((tool) => handlers?.[tool.name]);
-  const system = [
-    systemPromptFor(content, audience || (viewer ? "member" : "visitor")),
-    // Who is on the other side, as verified by the app's own auth — not just
-    // claimed in chat. An editor owns the content; a viewer reads it
-    // read-only; a visitor gets site talk only.
-    audience === "viewer" && viewer
-      ? `You are talking to a SIGNED-IN VIEWER${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, and they see the whole portfolio READ-ONLY: they may read, download and ask about everything here, but neither they nor you can edit the owner's content — never promise changes, saves or new CVs to them.`
-      : viewer
-        ? `You are talking to a SIGNED-IN member${[viewer.firstName, viewer.lastName].filter(Boolean).length ? ` — ${[viewer.firstName, viewer.lastName].filter(Boolean).join(" ")}` : ""}${viewer.email ? ` (${viewer.email})` : ""}. Their sign-in is verified by the app itself, so you may share THEIR OWN account-related details — their name, email, and their portfolio content — and help with account things.`
-        : `You are talking to a VISITOR who is NOT signed in. Stick to site-related questions; never invent or reveal any account details, and if they ask about "their account", kindly tell them to sign in first via the Login option in the navbar.`,
-    // Where the visitor is sitting right now — the model otherwise answers
-    // "which page am I on" with a guess.
-    currentPage && `The visitor is currently viewing: ${currentPage}.`,
-    available.length > 0 &&
-      `Your tools (${available
-        .map((tool) => tool.name)
-        .join(", ")}) take real actions in the visitor's browser. When a request matches one — going to a page, copying a link or the email, handing over the CV file — call the tool and confirm the result, instead of telling the visitor to do it themselves.`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const system = buildSystem(content, { handlers, audience, viewer, currentPage });
   const conversation = turns
     .slice(-12)
     .map((turn) => ({
@@ -621,6 +629,158 @@ export const callGateway = async (
     return {
       text: roundText.trim(),
       usage,
+      thinkMs: firstTokenAt == null ? null : Math.round(firstTokenAt - startedAt),
+    };
+  }
+  throw new Error("The model kept calling tools without settling on an answer");
+};
+
+// ---- The built-in free brain ---------------------------------------------
+//
+// Robi answers out of the box through Puter.js (js.puter.com), which fronts
+// hosted models with NO API key: under Puter's "User Pays" model each
+// chatter's own free Puter allowance covers the tokens, so the site owner
+// never wires a key and visitors chat for free up to that allowance (and
+// this app's own daily cap, enforced in Chatbot.jsx). A configured AI
+// Gateway always wins — the built-in brain only fills the no-gateway case.
+
+export const BUILT_IN_BRAIN = {
+  source: "https://js.puter.com/v2/",
+  model: "gpt-5.4-mini",
+  label: "Built-in free brain",
+};
+
+// Inject the Puter SDK once, on first use — the script tag only hits the
+// network when the built-in brain actually answers, never when a custom
+// gateway is doing the thinking.
+let puterPromise = null;
+export const loadPuter = () => {
+  if (window.puter) return Promise.resolve(window.puter);
+  if (!puterPromise) {
+    puterPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = BUILT_IN_BRAIN.source;
+      script.async = true;
+      script.onload = () =>
+        window.puter
+          ? resolve(window.puter)
+          : reject(new Error("The free AI bridge loaded but didn't initialize."));
+      script.onerror = () => {
+        // Allow a retry on the next message — the failure may be transient.
+        puterPromise = null;
+        reject(
+          new Error(
+            "Couldn't reach the free AI bridge (js.puter.com) — check the connection, or set up an AI Gateway in Settings.",
+          ),
+        );
+      };
+      document.head.appendChild(script);
+    });
+  }
+  return puterPromise;
+};
+
+// The free brain speaks Puter's chat API — OpenAI-shaped (same message
+// list, same tools array) but streamed as an async iterable whose parts
+// arrive whole: text parts carry `.text`, tool calls arrive complete as
+// {type:"tool_use", id, name, input}, errors as {type:"error", message}.
+// So this is a lighter cousin of callGateway: no SSE assembly, and the
+// contract is identical — { text, usage, thinkMs }.
+export const callBuiltInBrain = async (
+  puter,
+  turns,
+  content,
+  {
+    handlers = {},
+    onText = () => {},
+    onStatus = () => {},
+    currentPage = "",
+    viewer = null,
+    audience = null,
+  } = {},
+) => {
+  const system = buildSystem(content, { handlers, audience, viewer, currentPage });
+  const messages = [
+    { role: "system", content: system },
+    ...turns.slice(-12).map((turn) => ({
+      role: turn.from === "user" ? "user" : "assistant",
+      content: turn.text,
+    })),
+  ];
+  const tools = providerTools(Object.keys(handlers), "openai");
+  // Same size rules as the gateway rounds: CV composition needs the most room.
+  const max_tokens = handlers?.write_cv
+    ? 2000
+    : handlers?.analyze_fit || handlers?.summarize_cv
+      ? 700
+      : 400;
+  const startedAt = performance.now();
+  let firstTokenAt = null;
+  let fullText = "";
+  let model = BUILT_IN_BRAIN.model;
+
+  for (let round = 0; round <= MAX_TOOL_ROUNDS; round += 1) {
+    onStatus({ kind: "thinking" });
+    const options = { stream: true, max_tokens };
+    if (tools) options.tools = tools;
+    if (model) options.model = model;
+    let resp;
+    try {
+      resp = await puter.ai.chat(messages, options);
+    } catch (error) {
+      // A retired model id shouldn't brick the free brain — fall back to
+      // Puter's platform default once, then let real errors surface.
+      if (model && /model/i.test(String(error?.message || error))) {
+        model = null;
+        delete options.model;
+        resp = await puter.ai.chat(messages, options);
+      } else {
+        throw error;
+      }
+    }
+
+    let roundText = "";
+    const calls = [];
+    for await (const part of resp) {
+      if (part?.type === "error") {
+        throw new Error(part.message || "The free brain didn't answer.");
+      }
+      if (part?.type === "tool_use") {
+        calls.push(part);
+        continue;
+      }
+      const text = typeof part?.text === "string" ? part.text : "";
+      if (text) {
+        if (firstTokenAt == null) firstTokenAt = performance.now();
+        roundText += text;
+        onText(fullText + roundText);
+      }
+    }
+
+    if (calls.length > 0) {
+      fullText += roundText;
+      messages.push({
+        role: "assistant",
+        ...(roundText ? { content: roundText } : {}),
+        tool_calls: calls.map((call) => ({
+          id: call.id,
+          type: "function",
+          function: { name: call.name, arguments: JSON.stringify(call.input ?? {}) },
+        })),
+      });
+      for (const call of calls) {
+        onStatus({ kind: "tool", name: call.name });
+        messages.push({
+          role: "tool",
+          tool_call_id: call.id,
+          content: await runTool(handlers, call.name, call.input ?? {}),
+        });
+      }
+      continue;
+    }
+    return {
+      text: roundText.trim(),
+      usage: null, // Puter's stream carries no usage summary
       thinkMs: firstTokenAt == null ? null : Math.round(firstTokenAt - startedAt),
     };
   }

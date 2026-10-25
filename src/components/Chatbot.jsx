@@ -33,9 +33,12 @@ import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { toDataUrl } from "../portfolio/portfolio-export";
 import { createFreshCv, getActiveCv, newId, normalizeContent } from "../content/portfolioShape";
 import {
+  BUILT_IN_BRAIN,
   PROVIDERS,
   SKILL_REGISTRY,
+  callBuiltInBrain,
   callGateway,
+  loadPuter,
   providerMeta,
   toolProgress,
 } from "./chat/gateway";
@@ -98,9 +101,25 @@ const STORAGE = {
   settings: "robi.chat.settings",
   gateway: "robi.chat.gateway",
   skills: "robi.chat.skills",
+  free: "robi.chat.freeUse",
 };
 const MAX_SESSIONS = 20;
 const MAX_MESSAGES = 100;
+
+// The built-in free brain is free but not infinite: a per-device daily
+// allowance keeps casual chatting covered while making heavy funnels
+// someone else's gateway problem. Only the built-in brain counts — a
+// configured AI Gateway rides the owner's own quota and stays unlimited.
+// Per device (localStorage), so it soft-caps honest visitors rather than
+// defending against a cleared store.
+const FREE_DAILY_LIMIT = 20;
+const todayKey = () => new Date().toISOString().slice(0, 10);
+
+// Today's count, or a fresh one the moment the stored date goes stale.
+const readFreeUse = () => {
+  const stored = loadStored(STORAGE.free, null);
+  return stored?.date === todayKey() ? stored : { date: todayKey(), count: 0 };
+};
 
 // Every skill Robi can be given, straight from the gateway's registry, and
 // the icon each card wears in the Skills panel.
@@ -293,10 +312,10 @@ const fieldClass =
   "w-full rounded-xl border border-white/10 bg-gray-900/70 px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:border-teal-400 focus:outline-none";
 
 // The AI Gateway form: point Robi at any Anthropic- or OpenAI-compatible
-// gateway and he answers through that model instead of his built-in brain.
-// The draft lives here (Save/Test work on it); the saved copy lives in the
-// chatbot above and persists per device.
-const GatewaySection = ({ saved, onSave }) => {
+// gateway and he answers through that model instead of his built-in free
+// brain. The draft lives here (Save/Test work on it); the saved copy lives
+// in the chatbot above and persists per device.
+const GatewaySection = ({ saved, onSave, freeLeft }) => {
   const [draft, setDraft] = useState(
     saved
       ? { ...saved }
@@ -357,15 +376,21 @@ const GatewaySection = ({ saved, onSave }) => {
         <Sparkles className="h-4 w-4 text-teal-400" /> AI Gateway
       </h3>
       <p className="mt-1 text-xs leading-relaxed text-gray-500">
-        Gateway URL, model and token. When set, Robi answers through the model;
-        otherwise he has nothing to think with. Everything stays on this device
-        — never sent anywhere but the gateway itself.
+        Gateway URL, model and token. When set, Robi answers through the model
+        — no daily limit; otherwise he falls back to his built-in free brain.
+        Everything stays on this device — never sent anywhere but the gateway
+        itself.
       </p>
 
-      {saved && (
+      {saved ? (
         <p className="mt-3 rounded-lg border border-teal-400/30 bg-teal-500/10 px-3 py-2 text-xs font-medium text-teal-300">
           Override active — {providerMeta(saved.provider).label} →{" "}
           {saved.model || providerMeta(saved.provider).defaultModel}
+        </p>
+      ) : (
+        <p className="mt-3 rounded-lg border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs font-medium text-amber-300">
+          Free brain active — {BUILT_IN_BRAIN.model} with no setup, no key.{" "}
+          {freeLeft} of {FREE_DAILY_LIMIT} messages left today (resets daily).
         </p>
       )}
 
@@ -484,6 +509,7 @@ const SettingsView = ({
   onSettingsChange,
   gateway,
   onGatewayChange,
+  freeLeft,
   onBack,
 }) => (
   <div className="flex flex-1 flex-col overflow-hidden">
@@ -518,7 +544,7 @@ const SettingsView = ({
           />
         </div>
       </section>
-      <GatewaySection saved={gateway} onSave={onGatewayChange} />
+      <GatewaySection saved={gateway} onSave={onGatewayChange} freeLeft={freeLeft} />
     </div>
   </div>
 );
@@ -713,6 +739,15 @@ const Chatbot = () => {
   const [gateway, setGateway] = useState(() =>
     loadStored(STORAGE.gateway, null),
   );
+  // Today's free-brain spend, mirrored in state so the header badge and the
+  // settings panel update live as messages go out.
+  const [freeUse, setFreeUse] = useState(() => readFreeUse());
+  const freeLeft = Math.max(0, FREE_DAILY_LIMIT - freeUse.count);
+  const chargeFree = () => {
+    const next = { date: todayKey(), count: readFreeUse().count + 1 };
+    saveStored(STORAGE.free, next);
+    setFreeUse(next);
+  };
   // Which skills are installed. Storage keeps the REMOVALS, not the full
   // list — so a skill added to the registry later shows up installed, while
   // deliberate uninstalls still survive reloads. (The earlier shape stored
@@ -1081,21 +1116,27 @@ const Chatbot = () => {
     );
   };
 
-  // Every reply comes from the gateway's model — there is no offline brain.
-  // Without a gateway configured, the honest answer is the setup nudge. The
-  // reply bubble is created empty and fills in live as tokens stream in.
+  // Every reply comes from a model: the configured gateway when there is
+  // one, Robi's built-in free brain (Puter.js — no key, no setup) when
+  // there isn't. A sent message charges the free allowance even if the
+  // model later errors — the same rule every chat product uses — and a
+  // spent day answers with the reset nudge instead of silence. The reply
+  // bubble is created empty and fills in live as tokens stream in.
   const finishReply = async (history) => {
     if (!gateway) {
-      setMessages((current) => [
-        ...current,
-        {
-          from: "bot",
-          text: "I'm not wired to a brain yet 🤖 Open the ⋮ menu → Settings → AI Gateway, point me at a model, and ask me anything.",
-        },
-      ]);
-      setTyping(false);
-      setBotStatus(null);
-      return;
+      if (freeLeft <= 0) {
+        setMessages((current) => [
+          ...current,
+          {
+            from: "bot",
+            text: `That's today's free quota used up — ${FREE_DAILY_LIMIT} messages 🤖 The free brain resets tomorrow. Until then, bring your own model via ⋮ menu → Settings → AI Gateway for unlimited chat.`,
+          },
+        ]);
+        setTyping(false);
+        setBotStatus(null);
+        return;
+      }
+      chargeFree();
     }
     const streamId = `m-${Date.now()}`;
     setMessages((current) => [
@@ -1125,14 +1166,23 @@ const Chatbot = () => {
               email: profile.email,
             }
           : null;
-      const result = await callGateway(gateway, history, content, {
-        handlers: toolHandlers,
-        onText,
-        onStatus: setBotStatus,
-        currentPage: `${here || pathname} (${pathname})`,
-        viewer,
-        audience,
-      });
+      const result = gateway
+        ? await callGateway(gateway, history, content, {
+            handlers: toolHandlers,
+            onText,
+            onStatus: setBotStatus,
+            currentPage: `${here || pathname} (${pathname})`,
+            viewer,
+            audience,
+          })
+        : await callBuiltInBrain(await loadPuter(), history, content, {
+            handlers: toolHandlers,
+            onText,
+            onStatus: setBotStatus,
+            currentPage: `${here || pathname} (${pathname})`,
+            viewer,
+            audience,
+          });
       setMessages((current) =>
         current.map((message) =>
           message.id === streamId
@@ -1165,7 +1215,7 @@ const Chatbot = () => {
                 ...message,
                 text: busy
                   ? "⚠️ The model behind your gateway is overloaded right now — a peak-hour surge. It usually recovers in 1–5 minutes; try again shortly, or switch models in ⋮ → Settings → AI Gateway."
-                  : `⚠️ ${detail}`,
+                  : `⚠️ ${detail}${gateway ? "" : " — you can also connect your own model in ⋮ → Settings → AI Gateway."}`,
               }
             : message
         )
@@ -1179,10 +1229,10 @@ const Chatbot = () => {
   const headerButtonClass =
     "cursor-pointer rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-sky-300";
 
-  // Robi's brain is the AI gateway configured on the OWNER'S device (per-viewer
-  // localStorage) — a guest-link holder has none, so the honest "wire me to a
-  // brain" nudge would ask them to paste a gateway token they can't have.
-  // Guest chrome hides the launcher entirely, like the bell and Sign in.
+  // Guests get no Robi even though the free brain could now answer them —
+  // the invite link is a lean read-only content tour, and a third-party
+  // chat surface on it is chrome guest links shouldn't carry. The launcher
+  // stays hidden like the bell and Sign in.
   if (guest) return null;
 
   return (
@@ -1211,12 +1261,12 @@ const Chatbot = () => {
                 <p className="flex items-center gap-1.5 text-xs text-gray-400">
                   <span
                     className={`h-1.5 w-1.5 rounded-full ${
-                      gateway ? "bg-green-400" : "bg-amber-400"
+                      gateway || freeLeft > 0 ? "bg-green-400" : "bg-amber-400"
                     }`}
                   />
                   {gateway
                     ? `online — ${gateway.model || providerMeta(gateway.provider).defaultModel}`
-                    : "online — no brain connected"}
+                    : `online — free brain · ${freeLeft} of ${FREE_DAILY_LIMIT} left today`}
                 </p>
               </div>
               {/* Session menu — history and settings live here. */}
@@ -1313,6 +1363,7 @@ const Chatbot = () => {
                 onSettingsChange={setSettings}
                 gateway={gateway}
                 onGatewayChange={setGateway}
+                freeLeft={freeLeft}
                 onBack={() => setPanel(null)}
               />
             ) : (

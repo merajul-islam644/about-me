@@ -24,6 +24,9 @@ const FIELDS = [
 ];
 
 // Where a /invite/:token landing parks the token for the portfolio provider.
+// sessionStorage, not localStorage: a guest link is a visit, not an
+// installation — closing the tab (or ending the browser session) drops the
+// token, so nothing outlives the guest's stay on a shared browser.
 export const GUEST_INVITE_STORAGE_KEY = "guest-invite-token";
 
 // The public webhook of the "Invite Content Gate" workflow — only resource
@@ -66,7 +69,17 @@ function generateInviteToken(length = 48) {
 
 export function readGuestToken() {
   try {
-    return localStorage.getItem(GUEST_INVITE_STORAGE_KEY) || "";
+    const session = sessionStorage.getItem(GUEST_INVITE_STORAGE_KEY);
+    if (session) return session;
+    // One-time migration: builds before this parked the token in
+    // localStorage, where it outlived the tab. Move it over and leave
+    // nothing behind.
+    const legacy = localStorage.getItem(GUEST_INVITE_STORAGE_KEY) || "";
+    if (legacy) {
+      sessionStorage.setItem(GUEST_INVITE_STORAGE_KEY, legacy);
+      localStorage.removeItem(GUEST_INVITE_STORAGE_KEY);
+    }
+    return legacy;
   } catch {
     return "";
   }
@@ -74,7 +87,7 @@ export function readGuestToken() {
 
 export function storeGuestToken(token) {
   try {
-    localStorage.setItem(GUEST_INVITE_STORAGE_KEY, token);
+    sessionStorage.setItem(GUEST_INVITE_STORAGE_KEY, token);
   } catch {
     // Storage unavailable (private mode): the link still works for this page.
   }
@@ -82,9 +95,15 @@ export function storeGuestToken(token) {
 
 export function clearGuestToken() {
   try {
-    localStorage.removeItem(GUEST_INVITE_STORAGE_KEY);
+    sessionStorage.removeItem(GUEST_INVITE_STORAGE_KEY);
   } catch {
     // Nothing to clean up when storage is unavailable.
+  }
+  // Older builds kept the token in localStorage — sweep that copy too.
+  try {
+    localStorage.removeItem(GUEST_INVITE_STORAGE_KEY);
+  } catch {
+    // Nothing to clean up.
   }
 }
 

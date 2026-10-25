@@ -63,10 +63,17 @@ async function fireAclWrites(resourceId, resourceType, label) {
     ["share Everyone Download", () => objects.share({ resourceId, resourceType, principalType: "Everyone", permission: "Download" })],
     ["share Organization View", () => objects.share({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "View" })],
     ["share Organization Download", () => objects.share({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "Download" })],
+    // Edit is what makes the folder USABLE by members: the upload presign
+    // needs write on the directory, and without this grant every non-creator
+    // member's picture upload dies with `access: forbidden`. Only the
+    // folder creator's session can land it — everyone else's attempt 403s
+    // into the warn below and harmlessly retries another day.
+    ["share Organization Edit", () => objects.share({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "Edit" })],
     ["policy Everyone View", () => objects.grantAccess({ resourceId, resourceType, principalType: "Everyone", permission: "View", effect: "Allow" })],
     ["policy Everyone Download", () => objects.grantAccess({ resourceId, resourceType, principalType: "Everyone", permission: "Download", effect: "Allow" })],
     ["policy Organization View", () => objects.grantAccess({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "View", effect: "Allow" })],
     ["policy Organization Download", () => objects.grantAccess({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "Download", effect: "Allow" })],
+    ["policy Organization Edit", () => objects.grantAccess({ resourceId, resourceType, principalType: "Organization", principalId: PROJECT_ORG_ID, permission: "Edit", effect: "Allow" })],
   ];
   for (const [name, attempt] of attempts) {
     try {
@@ -199,8 +206,15 @@ export async function uploadProfilePicture(file, userId) {
 
   const presigned = await blocksClient.data.files.presignedUploadUrl(request);
   const uploadUrl = presigned?.uploadUrl ?? presigned?.url;
-  if (typeof uploadUrl !== "string") {
-    throw new Error("Storage did not return an upload URL. Try again.");
+  if (typeof uploadUrl !== "string" || !uploadUrl) {
+    // A refused presign replies isSuccess:false with an EMPTY-string url —
+    // typeof still calls that "string", so the PUT would fly at a garbage
+    // target and die as a cryptic "Blocks API 404". Surface the reason.
+    throw new Error(
+      presigned?.errors
+        ? `Storage refused the upload (${JSON.stringify(presigned.errors)}).`
+        : "Storage did not return an upload URL. Try again."
+    );
   }
   if (presigned.fileId) {
     fileIdCache.set(cacheKey(userId), presigned.fileId);
@@ -210,12 +224,14 @@ export async function uploadProfilePicture(file, userId) {
   }
 
   // Provider-direct pre-signed PUT — no Blocks auth headers by design. Echo
-  // back the headers the presign demanded (e.g. x-ms-blob-type).
+  // back the headers the presign demanded (e.g. x-ms-blob-type). The presign
+  // often replies with none at all (null), and fetch's Headers constructor
+  // rejects null with a TypeError — hand it an empty record instead.
   await blocksClient.data.files.uploadToUrl({
     url: uploadUrl,
     body: file,
     contentType: file.type,
-    headers: presigned?.requiredHeaders,
+    headers: presigned?.requiredHeaders ?? {},
   });
 
   // The uploader's own read works regardless, but everyone else needs the

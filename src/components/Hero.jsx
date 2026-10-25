@@ -7,7 +7,7 @@ import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { pushNotification } from "../portfolio/notifications";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
-import { toDataUrl } from "../portfolio/portfolio-export";
+import { defaultPictureDataUrl, toDataUrl } from "../portfolio/portfolio-export";
 import { fetchGuestContent, readGuestToken } from "../lib/blocks/invites";
 import { MERAJ_USER_ID } from "../content/merajPortfolio";
 import { AccentText } from "../content/AccentText";
@@ -596,7 +596,8 @@ const Hero = () => {
 
   // One shared PDF build for the download and the preview — guests fetch a
   // fresh presigned photo (the page-load one expires in ~5 minutes), owners
-  // reuse the loaded one.
+  // reuse the loaded one. A missing photo falls back to the bundled cartoon
+  // avatar — the same face the page itself shows.
   const buildCvDoc = async () => {
     const [{ buildCvPdf }, picture] = await Promise.all([
       import("../portfolio/cv-pdf"),
@@ -606,7 +607,7 @@ const Hero = () => {
           ? toDataUrl(url)
           : Promise.resolve(null),
     ]);
-    return buildCvPdf(content, picture);
+    return buildCvPdf(content, picture ?? (await defaultPictureDataUrl()));
   };
 
   const handleDownloadCv = async () => {

@@ -150,11 +150,11 @@ export const DesignGallery = ({
       // nothing about the preview costs the pages that never open it.
       const [{ buildCvPdf }, pictureData] = await Promise.all([
         import("../../portfolio/cv-pdf"),
-        picture
-          ? import("../../portfolio/portfolio-export").then((module) =>
-              module.toDataUrl(picture)
-            )
-          : Promise.resolve(null),
+        import("../../portfolio/portfolio-export").then((module) =>
+          picture
+            ? module.toDataUrl(picture)
+            : module.defaultPictureDataUrl()
+        ),
       ]);
       // The third argument pins the PDF to THIS design — the active CV's
       // stored design stays untouched; this is a look, not a pick.

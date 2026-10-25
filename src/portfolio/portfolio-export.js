@@ -4,6 +4,8 @@
 // script), so the file needs internet on first open. The profile picture is
 // embedded as a data URL by the caller — the file itself carries no requests.
 
+import visitorAvatar from "../assets/visitor-avatar.jpg";
+
 // Lucide icon paths (mail, github, linkedin, link) so the exported buttons
 // match the app without shipping a library.
 const ICONS = {
@@ -223,6 +225,13 @@ export async function toDataUrl(url) {
   } catch {
     return null;
   }
+}
+
+// The bundled cartoon avatar as a data URL — every PDF's default face when
+// nobody uploaded a picture, since the pages themselves fall back to the
+// same asset. Null-safe: toDataUrl already swallows its own failures.
+export async function defaultPictureDataUrl() {
+  return toDataUrl(visitorAvatar);
 }
 
 export const exportFileName = (content) =>

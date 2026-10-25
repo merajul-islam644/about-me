@@ -30,7 +30,7 @@ import {
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
-import { toDataUrl } from "../portfolio/portfolio-export";
+import { defaultPictureDataUrl, toDataUrl } from "../portfolio/portfolio-export";
 import { createFreshCv, getActiveCv, newId, normalizeContent } from "../content/portfolioShape";
 import {
   BUILT_IN_BRAIN,
@@ -821,7 +821,7 @@ const Chatbot = () => {
           import("../portfolio/cv-pdf"),
           pictureUrl ? toDataUrl(pictureUrl) : Promise.resolve(null),
         ]);
-        const doc = buildCvPdf(content, picture);
+        const doc = buildCvPdf(content, picture ?? (await defaultPictureDataUrl()));
         const file = cvPdfFileName(content);
         doc.save(file);
         return `The CV was built and saved as “${file}” — it is in the visitor's downloads now.`;

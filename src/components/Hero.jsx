@@ -92,10 +92,11 @@ const Hero = () => {
   const isCvPath = getMode(pathname).key === "cv";
   const activeCv = getActiveCv(content);
   const cvMode = isCvPath && Boolean(activeCv);
-  // A guest whose invite shares no CV (or one that has since been deleted)
-  // lands here: the CV tab becomes a friendly empty page, never the
-  // owner's other CVs and never a broken render.
-  const guestCvGate = guest && isCvPath && !activeCv;
+  // A guest whose invite shares no CV (or one that has since been deleted) —
+  // and a signed-in invited viewer with no CV granted — land here: the CV
+  // tab becomes the same friendly empty page, never the owner's other CVs
+  // and never a broken render.
+  const cvGate = isCvPath && !activeCv && (guest || (authed && !canEdit));
   const hero = cvMode ? activeCv : content?.hero;
   // The active CV's visual design — the whole /cv page (headline, document,
   // and the PDF through the stored field) renders in it. Portfolio pages
@@ -1195,7 +1196,7 @@ const Hero = () => {
           whichever layout branch follows. */}
       {viewerCvBar}
 
-      {guestCvGate ? (
+      {cvGate ? (
         <div className="flex flex-1 items-center justify-center px-6 pb-16">
           <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gray-800 px-8 py-14 text-center shadow-xl">
             <span className="flex h-14 w-14 items-center justify-center rounded-full bg-sky-500/10 text-sky-300">
@@ -1203,9 +1204,9 @@ const Hero = () => {
             </span>
             <h2 className="text-xl font-bold text-white">No CV shared yet</h2>
             <p className="text-sm leading-relaxed text-gray-400">
-              This invite link doesn't include a CV. The owner can pick one
-              for your link any time from their access page — after that, the
-              CV shows up right here.
+              {guest
+                ? "This invite link doesn't include a CV. The owner can pick one for your link any time from their access page — after that, the CV shows up right here."
+                : "No CV is shared with your account yet. The owner can pick one for you any time from their access page — after that, the CV shows up right here."}
             </p>
           </div>
         </div>

@@ -14,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth, rolesToSlugs } from "../auth/auth-context";
+import { MERAJ_USER_ID } from "../content/merajPortfolio";
 import { ModeTabs } from "./ModeTabs";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import {
@@ -205,13 +206,18 @@ const RoleCheckbox = ({ role, checked, onToggle }) => (
   </label>
 );
 
-const InviteModal = ({ roles, onClose, onInvited }) => {
+const InviteModal = ({ roles, canShareCv, onClose, onInvited }) => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [picked, setPicked] = useState([]);
+  // Which of the owner's CVs the invited viewer sees after signing in —
+  // empty keeps today's behavior (the owner's active CV).
+  const [cvId, setCvId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { content, save } = usePortfolio();
+  const cvs = content?.cvs ?? [];
 
   const toggle = (slug) =>
     setPicked((current) =>
@@ -228,12 +234,36 @@ const InviteModal = ({ roles, onClose, onInvited }) => {
       if (!available) {
         throw new Error("This email already has an account in this project.");
       }
-      await inviteUser({
+      const created = await inviteUser({
         email: trimmed,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         roles: picked,
       });
+      // Pin the invited viewer to the picked CV via the owner's content map
+      // (userId → cvId). The invite itself already succeeded, so a failed
+      // save keeps the modal open with a partial-success message rather
+      // than pretending the whole thing went through.
+      if (cvId && created?.itemId) {
+        const shared = cvs.find((cv) => cv.id === cvId);
+        if (shared) {
+          try {
+            await save({
+              ...content,
+              cvAccessByUser: {
+                ...(content?.cvAccessByUser ?? {}),
+                [created.itemId]: cvId,
+              },
+            });
+          } catch (saveError) {
+            throw new Error(
+              `The invite was created, but saving the shared CV failed: ${
+                saveError.message || "unknown error"
+              }`
+            );
+          }
+        }
+      }
       onInvited(trimmed);
     } catch (inviteError) {
       setError(inviteError.message);
@@ -287,6 +317,32 @@ const InviteModal = ({ roles, onClose, onInvited }) => {
             className={fieldClass}
           />
         </label>
+
+        {/* Only the site owner's share applies — viewers browse the owner's
+            row, so a pick made by any other clouduser would silently no-op. */}
+        {canShareCv && (
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs font-semibold text-gray-400">CV they will see</span>
+          <select
+            value={cvId}
+            onChange={(event) => setCvId(event.target.value)}
+            aria-label="CV the invited user will see"
+            className={fieldClass}
+          >
+            <option value="">None shared — they see no CV</option>
+            {cvs.map((cv) => (
+              <option key={cv.id} value={cv.id}>
+                {cv.name || "Untitled CV"}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-gray-500">
+            An invited viewer (dataviewer) sees only the CV picked here — you
+            can change it anytime from the CV dropdown on their row in the
+            Users tab.
+          </span>
+        </label>
+      )}
 
         <div className="flex flex-col gap-2">
           <span className="text-xs font-semibold text-gray-400">Roles</span>
@@ -446,7 +502,16 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
   const [rolesFor, setRolesFor] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [busyId, setBusyId] = useState(null);
+  // Per-row shared-CV saving state for invited viewers (the inline dropdown).
+  const [savingCvFor, setSavingCvFor] = useState(null);
   const confirmTimer = useRef(null);
+  // The owner's CVs power the per-viewer shared-CV dropdowns. Only the site
+  // owner's picks matter — invited viewers browse the OWNER's row (see
+  // PortfolioProvider), so a share written by any other clouduser would
+  // silently no-op. The dropdowns therefore render for the owner alone.
+  const { content, save } = usePortfolio();
+  const cvs = content?.cvs ?? [];
+  const isSiteOwner = meId === MERAJ_USER_ID;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -504,6 +569,30 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
     event.preventDefault();
     setPage(1);
     setQuery(search.trim());
+  };
+
+  // Grant or revoke one invited viewer's CV — the same map the invite modal
+  // writes (userId → cvId). "None shared" removes the entry, and the viewer's
+  // CV tab goes empty, exactly like a guest link with nothing shared.
+  const changeSharedCv = async (user, nextCvId) => {
+    setSavingCvFor(user.itemId);
+    setError("");
+    setNotice("");
+    try {
+      const map = { ...(content?.cvAccessByUser ?? {}) };
+      if (nextCvId) map[user.itemId] = nextCvId;
+      else delete map[user.itemId];
+      await save({ ...content, cvAccessByUser: map });
+      setNotice(
+        nextCvId
+          ? `${userName(user)} will now see only “${cvs.find((cv) => cv.id === nextCvId)?.name || "that CV"}”.`
+          : `${userName(user)} no longer sees any CV.`
+      );
+    } catch (saveError) {
+      setError(saveError.message);
+    } finally {
+      setSavingCvFor(null);
+    }
   };
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
@@ -589,6 +678,37 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
                       );
                     })()}
                   </div>
+                  {(() => {
+                    // Only pure viewers browse the owner's site, so only they
+                    // get a shared-CV grant — a clouduser always sees their
+                    // own site instead. And only the site owner's grant
+                    // reaches them, so the dropdown is owner-only.
+                    if (!isSiteOwner) return null;
+                    const slugs = roleSlugsOf(user);
+                    if (!slugs.includes("dataviewer") || slugs.includes("clouduser")) return null;
+                    return (
+                      <label className="mt-2 flex items-center gap-1.5">
+                        <span className="text-xs font-medium text-gray-400">CV</span>
+                        <select
+                          value={content?.cvAccessByUser?.[user.itemId] ?? ""}
+                          disabled={savingCvFor === user.itemId || !user.itemId}
+                          onChange={(event) => changeSharedCv(user, event.target.value)}
+                          aria-label={`Shared CV for ${userName(user)}`}
+                          className="cursor-pointer rounded-lg border border-white/10 bg-gray-800 px-2 py-1 text-xs text-gray-200 focus:border-sky-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <option value="">None shared</option>
+                          {cvs.map((cv) => (
+                            <option key={cv.id} value={cv.id}>
+                              {cv.name || "Untitled CV"}
+                            </option>
+                          ))}
+                        </select>
+                        {savingCvFor === user.itemId && (
+                          <Loader2 className="h-3 w-3 animate-spin text-sky-400" />
+                        )}
+                      </label>
+                    );
+                  })()}
                 </div>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
@@ -683,6 +803,7 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
       {inviteOpen && (
         <InviteModal
           roles={roles}
+          canShareCv={isSiteOwner}
           onClose={() => setInviteOpen(false)}
           onInvited={(email) => {
             setInviteOpen(false);

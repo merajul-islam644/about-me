@@ -61,27 +61,32 @@ export async function checkEmailAvailable(email) {
 }
 
 export async function inviteUser({ email, firstName, lastName, roles = [] }) {
-  await call("Invite", async () => {
+  return call("Invite", async () => {
     // users.create returns no id and its inline roles land in one
     // organization only — create the account bare, find the fresh record
-    // by email, then attach the roles to both organizations.
+    // by email, then attach the roles to both organizations. The found
+    // record comes back so callers can key per-user settings (like the
+    // shared-CV pick) to the new account.
     await blocksClient.iam.users.create({ email, firstName, lastName });
-    if (!roles.length) return;
     const { users } = await listUsers({ search: email });
-    const created = users.find(
-      (user) => (user.email || "").toLowerCase() === email.toLowerCase()
-    );
-    if (!created?.itemId) {
-      throw new Error(
-        "the account was created, but attaching its roles failed — set them from the Users tab"
-      );
+    const created =
+      users.find(
+        (user) => (user.email || "").toLowerCase() === email.toLowerCase()
+      ) ?? null;
+    if (roles.length) {
+      if (!created?.itemId) {
+        throw new Error(
+          "the account was created, but attaching its roles failed — set them from the Users tab"
+        );
+      }
+      await blocksClient.iam.users.updateAccess({
+        userId: created.itemId,
+        roles,
+        organizationId: PROJECT_ORG_ID,
+      });
+      await blocksClient.iam.users.updateAccess({ userId: created.itemId, roles });
     }
-    await blocksClient.iam.users.updateAccess({
-      userId: created.itemId,
-      roles,
-      organizationId: PROJECT_ORG_ID,
-    });
-    await blocksClient.iam.users.updateAccess({ userId: created.itemId, roles });
+    return created;
   });
 }
 

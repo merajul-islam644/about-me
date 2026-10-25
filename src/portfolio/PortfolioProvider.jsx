@@ -116,14 +116,25 @@ export const PortfolioProvider = ({ children }) => {
   // Invited viewers (signed-in without clouduser) browse the OWNER's live
   // row read-only — never their own starter content, never a save target.
   // itemId stays null so save() is structurally impossible for them.
-  const loadOwnerView = useCallback(async () => {
+  const loadOwnerView = useCallback(async (viewerUserId) => {
     setState((prev) => ({ ...prev, status: "loading", error: null }));
     try {
       const row = await getPortfolioRow(MERAJ_USER_ID);
       if (!row) throw new Error("owner row missing");
+      let content = normalizeContent(JSON.parse(row.Content));
+      // CV access for invited viewers is explicit — full parity with guest
+      // links: a viewer pinned to one CV sees ONLY that CV, and a viewer with
+      // no grant (or whose granted CV was since deleted) sees an EMPTY CV tab.
+      const pinnedCvId = content.cvAccessByUser?.[viewerUserId ?? ""];
+      const pinned = pinnedCvId
+        ? content.cvs.find((cv) => cv.id === pinnedCvId)
+        : null;
+      content = pinned
+        ? { ...content, cvs: [pinned], activeCvId: pinned.id, cv: pinned }
+        : { ...content, cvs: [], activeCvId: null, cv: null };
       setState({
         status: "ready",
-        content: normalizeContent(JSON.parse(row.Content)),
+        content,
         itemId: null,
         error: null,
       });
@@ -172,7 +183,7 @@ export const PortfolioProvider = ({ children }) => {
     if (authStatus === "authenticated" && profile?.userId && canEdit) {
       load(profile);
     } else if (authStatus === "authenticated") {
-      loadOwnerView();
+      loadOwnerView(profile?.userId);
     } else if (authStatus === "unauthenticated") {
       // Visitors browse the public showcase read-only: no row is fetched and
       // nothing can be saved (itemId stays null). A guest-link holder instead
@@ -232,7 +243,7 @@ export const PortfolioProvider = ({ children }) => {
     if (authStatus === "authenticated" && profile?.userId && canEdit) {
       return load(profile, { isRetry: true });
     }
-    if (authStatus === "authenticated") return loadOwnerView();
+    if (authStatus === "authenticated") return loadOwnerView(profile?.userId);
     const guestToken = readGuestToken();
     if (guestToken) return loadGuestView(guestToken);
     return Promise.resolve();

@@ -570,6 +570,18 @@ export function normalizeContent(raw, fallback = lastResortContent) {
     : (cvs[0]?.id ?? null);
   const activeCv = cvs.find((cv) => cv.id === activeCvId) ?? null;
 
+  // Per-viewer CV sharing: `cvAccessByUser` maps an invited viewer's IAM
+  // userId to the one CV id they may see. Anything malformed is dropped so
+  // a hand-edited row can never wedge the CV tab.
+  const cvAccessByUser = {};
+  if (raw_.cvAccessByUser && typeof raw_.cvAccessByUser === "object") {
+    for (const [viewerId, sharedCvId] of Object.entries(raw_.cvAccessByUser)) {
+      if (typeof viewerId === "string" && viewerId && typeof sharedCvId === "string" && sharedCvId) {
+        cvAccessByUser[viewerId] = sharedCvId;
+      }
+    }
+  }
+
   return {
     version: CONTENT_VERSION,
     brand:
@@ -589,6 +601,7 @@ export function normalizeContent(raw, fallback = lastResortContent) {
     contact: activePortfolio.contact,
     cvs,
     activeCvId,
+    cvAccessByUser,
     // `cv` mirrors the active CV — every legacy reader (and older saved
     // rows) keeps working untouched.
     cv: activeCv,

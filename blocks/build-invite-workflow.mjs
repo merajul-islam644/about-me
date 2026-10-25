@@ -1,32 +1,19 @@
 // One-off builder: writes blocks/invite-content-gate.json with the project key
-// and workflow client credential injected from .env.local — so no secret ever
-// lands in the file's source or the terminal output. Run: node blocks/build-invite-workflow.mjs
-import { readFileSync, writeFileSync } from "node:fs";
+// and workflow client credential injected from the environment (or .env.local
+// as the local fallback) — so no secret ever lands in the file's source or
+// the terminal output. Run: node blocks/build-invite-workflow.mjs
+import { writeFileSync } from "node:fs";
+import { requireCredentials } from "./env.mjs";
 
-const envText = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
-const env = Object.fromEntries(
-  envText
-    .split(/\r?\n/)
-    .filter((line) => line && !line.startsWith("#") && line.includes("="))
-    .map((line) => {
-      const i = line.indexOf("=");
-      return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
-    })
-);
-
-const projectKey = env.VITE_BLOCKS_PROJECT_KEY;
-const clientId = env.BLOCKS_WORKFLOW_CLIENT_ID;
-const clientSecret = env.BLOCKS_WORKFLOW_CLIENT_SECRET;
-for (const [name, value] of [
-  ["VITE_BLOCKS_PROJECT_KEY", projectKey],
-  ["BLOCKS_WORKFLOW_CLIENT_ID", clientId],
-  ["BLOCKS_WORKFLOW_CLIENT_SECRET", clientSecret],
-]) {
-  if (!value) {
-    console.error(`missing ${name} in .env.local`);
-    process.exit(1);
-  }
-}
+const {
+  VITE_BLOCKS_PROJECT_KEY: projectKey,
+  BLOCKS_WORKFLOW_CLIENT_ID: clientId,
+  BLOCKS_WORKFLOW_CLIENT_SECRET: clientSecret,
+} = requireCredentials([
+  "VITE_BLOCKS_PROJECT_KEY",
+  "BLOCKS_WORKFLOW_CLIENT_ID",
+  "BLOCKS_WORKFLOW_CLIENT_SECRET",
+]);
 
 // The owner whose content guest links reveal — same constant the app seeds with.
 const MERAJ_USER_ID = "87e107b5-7be2-4964-a461-0a46348d3ef2";

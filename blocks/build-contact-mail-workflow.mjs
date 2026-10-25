@@ -1,33 +1,20 @@
 // One-off builder: writes blocks/contact-mail-gate.json with the project key
-// and workflow client credential injected from .env.local — the same pattern
-// as build-invite-workflow.mjs, but a SEPARATE workflow so the invite gate
-// stays untouched. Run: node blocks/build-contact-mail-workflow.mjs
-import { readFileSync, writeFileSync } from "node:fs";
+// and workflow client credential injected from the environment (or .env.local
+// as the local fallback) — the same pattern as build-invite-workflow.mjs, but
+// a SEPARATE workflow so the invite gate stays untouched.
+// Run: node blocks/build-contact-mail-workflow.mjs
+import { writeFileSync } from "node:fs";
+import { requireCredentials } from "./env.mjs";
 
-const envText = readFileSync(new URL("../.env.local", import.meta.url), "utf8");
-const env = Object.fromEntries(
-  envText
-    .split(/\r?\n/)
-    .filter((line) => line && !line.startsWith("#") && line.includes("="))
-    .map((line) => {
-      const i = line.indexOf("=");
-      return [line.slice(0, i).trim(), line.slice(i + 1).trim()];
-    })
-);
-
-const projectKey = env.VITE_BLOCKS_PROJECT_KEY;
-const clientId = env.BLOCKS_WORKFLOW_CLIENT_ID;
-const clientSecret = env.BLOCKS_WORKFLOW_CLIENT_SECRET;
-for (const [name, value] of [
-  ["VITE_BLOCKS_PROJECT_KEY", projectKey],
-  ["BLOCKS_WORKFLOW_CLIENT_ID", clientId],
-  ["BLOCKS_WORKFLOW_CLIENT_SECRET", clientSecret],
-]) {
-  if (!value) {
-    console.error(`missing ${name} in .env.local`);
-    process.exit(1);
-  }
-}
+const {
+  VITE_BLOCKS_PROJECT_KEY: projectKey,
+  BLOCKS_WORKFLOW_CLIENT_ID: clientId,
+  BLOCKS_WORKFLOW_CLIENT_SECRET: clientSecret,
+} = requireCredentials([
+  "VITE_BLOCKS_PROJECT_KEY",
+  "BLOCKS_WORKFLOW_CLIENT_ID",
+  "BLOCKS_WORKFLOW_CLIENT_SECRET",
+]);
 
 // The recipient is FIXED here on purpose: the webhook must never become an
 // open relay that mails whatever address a caller names. Same constant the

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -92,10 +92,11 @@ const RobotFace = ({ size = 44 }) => (
 // strip the emphasis markers.
 const plain = (text) => String(text ?? "").replace(/\*\*/g, "");
 
-// Chat sessions, preferences and the gateway config are a per-viewer
-// convenience on this device only — localStorage is right for that, and
-// every touch is guarded because storage can be blocked or cleared at any
-// time.
+// Chat sessions, preferences and the gateway config are a per-identity
+// convenience: each signed-in user gets their own namespace under their
+// user id (signed-out visitors share the device's "visitor" namespace —
+// there is no account to key by). Every touch is guarded because storage
+// can be blocked or cleared at any time.
 const STORAGE = {
   sessions: "robi.chat.sessions",
   settings: "robi.chat.settings",
@@ -116,8 +117,8 @@ const FREE_DAILY_LIMIT = 20;
 const todayKey = () => new Date().toISOString().slice(0, 10);
 
 // Today's count, or a fresh one the moment the stored date goes stale.
-const readFreeUse = () => {
-  const stored = loadStored(STORAGE.free, null);
+const readFreeUse = (key) => {
+  const stored = loadStored(key, null);
   return stored?.date === todayKey() ? stored : { date: todayKey(), count: 0 };
 };
 
@@ -730,22 +731,33 @@ const Chatbot = () => {
   // Which surface fills the panel: the chat itself, the 3-dot menu, or one
   // of the menu's destinations.
   const [panel, setPanel] = useState(null); // null | "menu" | "history" | "settings"
+  // Every stored slice (history, settings, gateway, skills, free-use) is
+  // namespaced per identity — the signed-in user's id, or "visitor" while
+  // signed out — so a shared browser never hands one account's chats, or
+  // its gateway credentials, to the next.
+  const scope =
+    status === "authenticated" && profile?.userId
+      ? String(profile.userId)
+      : "visitor";
+  // useCallback keeps `sk` referentially stable per scope — the persist
+  // effects below list it as a dependency and must not re-run every render.
+  const sk = useCallback((base) => `${base}.${scope}`, [scope]);
   const [sessions, setSessions] = useState(() =>
-    loadStored(STORAGE.sessions, []),
+    loadStored(sk(STORAGE.sessions), []),
   );
   const [settings, setSettings] = useState(() =>
-    loadStored(STORAGE.settings, { typingDelay: true, saveHistory: true }),
+    loadStored(sk(STORAGE.settings), { typingDelay: true, saveHistory: true }),
   );
   const [gateway, setGateway] = useState(() =>
-    loadStored(STORAGE.gateway, null),
+    loadStored(sk(STORAGE.gateway), null),
   );
   // Today's free-brain spend, mirrored in state so the header badge and the
   // settings panel update live as messages go out.
-  const [freeUse, setFreeUse] = useState(() => readFreeUse());
+  const [freeUse, setFreeUse] = useState(() => readFreeUse(sk(STORAGE.free)));
   const freeLeft = Math.max(0, FREE_DAILY_LIMIT - freeUse.count);
   const chargeFree = () => {
-    const next = { date: todayKey(), count: readFreeUse().count + 1 };
-    saveStored(STORAGE.free, next);
+    const next = { date: todayKey(), count: readFreeUse(sk(STORAGE.free)).count + 1 };
+    saveStored(sk(STORAGE.free), next);
     setFreeUse(next);
   };
   // Which skills are installed. Storage keeps the REMOVALS, not the full
@@ -754,10 +766,30 @@ const Chatbot = () => {
   // the whole list, which froze later skills out; an old array has no
   // `.removed`, so it migrates to "everything installed" on its own.)
   const [installedSkills, setInstalledSkills] = useState(() => {
-    const stored = loadStored(STORAGE.skills, null);
+    const stored = loadStored(sk(STORAGE.skills), null);
     const removed = Array.isArray(stored?.removed) ? stored.removed : [];
     return ALL_SKILL_NAMES.filter((name) => !removed.includes(name));
   });
+  // Auth resolving flips the scope (visitor → user id, or an account
+  // switch): re-read every slice so the panel shows THIS identity's stored
+  // state, never the previous reader's.
+  useEffect(() => {
+    setSessions(loadStored(sk(STORAGE.sessions), []));
+    setSettings(
+      loadStored(sk(STORAGE.settings), { typingDelay: true, saveHistory: true }),
+    );
+    setGateway(loadStored(sk(STORAGE.gateway), null));
+    setFreeUse(readFreeUse(sk(STORAGE.free)));
+    const storedSkills = loadStored(sk(STORAGE.skills), null);
+    const removed = Array.isArray(storedSkills?.removed)
+      ? storedSkills.removed
+      : [];
+    setInstalledSkills(
+      ALL_SKILL_NAMES.filter((name) => !removed.includes(name)),
+    );
+    // sk is a pure function of scope — [scope] is the full dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scope]);
   const [currentId, setCurrentId] = useState(null);
   // The message being edited inline — { index, draft } while active.
   const [editing, setEditing] = useState(null);
@@ -990,38 +1022,38 @@ const Chatbot = () => {
   // Persist preferences and history — history only while saving is on. The
   // gateway is stored as-is, so Clear overrides survives reloads too.
   useEffect(() => {
-    if (settings.saveHistory) saveStored(STORAGE.sessions, sessions);
+    if (settings.saveHistory) saveStored(sk(STORAGE.sessions), sessions);
     else {
       try {
-        localStorage.removeItem(STORAGE.sessions);
+        localStorage.removeItem(sk(STORAGE.sessions));
       } catch {
         /* nothing to clean up if storage is blocked */
       }
     }
-  }, [sessions, settings.saveHistory]);
+  }, [sessions, settings.saveHistory, sk]);
 
   useEffect(() => {
-    saveStored(STORAGE.settings, settings);
-  }, [settings]);
+    saveStored(sk(STORAGE.settings), settings);
+  }, [settings, sk]);
 
   useEffect(() => {
-    saveStored(STORAGE.skills, {
+    saveStored(sk(STORAGE.skills), {
       removed: ALL_SKILL_NAMES.filter(
         (name) => !installedSkills.includes(name),
       ),
     });
-  }, [installedSkills]);
+  }, [installedSkills, sk]);
 
   useEffect(() => {
-    if (gateway) saveStored(STORAGE.gateway, gateway);
+    if (gateway) saveStored(sk(STORAGE.gateway), gateway);
     else {
       try {
-        localStorage.removeItem(STORAGE.gateway);
+        localStorage.removeItem(sk(STORAGE.gateway));
       } catch {
         /* nothing to clean up if storage is blocked */
       }
     }
-  }, [gateway]);
+  }, [gateway, sk]);
 
   useEffect(() => () => clearTimeout(timerRef.current), []);
 

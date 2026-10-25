@@ -24,10 +24,12 @@ import {
   checkEmailAvailable,
   createRole,
   deactivateUser,
+  fetchUser,
   inviteUser,
   listPermissions,
   listRoles,
   listUsers,
+  setUserPermissions,
   setUserRoles,
 } from "../lib/blocks/iam";
 import {
@@ -496,6 +498,246 @@ const UserRolesModal = ({ user, roles, onClose, onSaved }) => {
   );
 };
 
+// Per-user DIRECT permissions — the portal's "user specific" grants,
+// attached to the account itself on top of whatever its roles carry. The
+// catalog browses and searches exactly like the role editor, but the held
+// state lives on the user record as resource strings, and the write
+// REPLACES the user's whole set: off-page grants stay parked in a set and
+// always ride back out with the save, so paging can never silently drop
+// them.
+const UserPermissionsModal = ({ user, onClose, onSaved }) => {
+  const [perms, setPerms] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [query, setQuery] = useState("");
+  const [held, setHeld] = useState(() => new Set());
+  const [initial, setInitial] = useState(() => new Set());
+  const [recordLoading, setRecordLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  // The record fetch decides what "already held" means — until it lands the
+  // save stays disabled, because a replace against unknown state could wipe
+  // grants this page never saw.
+  useEffect(() => {
+    let alive = true;
+    setRecordLoading(true);
+    fetchUser(user.itemId)
+      .then((record) => {
+        if (!alive) return;
+        const list = (Array.isArray(record?.permissions) ? record.permissions : []).map(
+          String
+        );
+        setHeld(new Set(list));
+        setInitial(new Set(list));
+      })
+      .catch((fetchError) => {
+        if (alive) setError(fetchError.message);
+      })
+      .finally(() => {
+        if (alive) setRecordLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [user.itemId]);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const result = await listPermissions({
+        pageNo: page,
+        pageSize: PERMS_PAGE_SIZE,
+        search: query,
+      });
+      setPerms((current) =>
+        page === 1 ? result.permissions : [...current, ...result.permissions]
+      );
+      setTotal(result.totalCount);
+    } catch (fetchError) {
+      setError(fetchError.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, query]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const added = [...held].filter((resource) => !initial.has(resource));
+  const removed = [...initial].filter((resource) => !held.has(resource));
+
+  const toggle = (resource) =>
+    setHeld((current) => {
+      const next = new Set(current);
+      if (next.has(resource)) next.delete(resource);
+      else next.add(resource);
+      return next;
+    });
+
+  const save = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await setUserPermissions({ userId: user.itemId, permissions: [...held] });
+      onSaved();
+    } catch (saveError) {
+      setError(saveError.message);
+      setSaving(false);
+    }
+  };
+
+  const applySearch = (event) => {
+    event.preventDefault();
+    setPage(1);
+    setQuery(search.trim());
+  };
+
+  return (
+    <Modal
+      title={`Direct permissions — ${userName(user)}`}
+      subtitle="Grants on the account itself, on top of its roles. Saving replaces this user's whole direct set."
+      onClose={onClose}
+      wide
+    >
+      <div className="flex flex-col gap-4">
+        {recordLoading ? (
+          <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Reading the user's current grants…
+          </div>
+        ) : (
+          <div className="rounded-xl border border-white/10 bg-gray-800 px-4 py-3">
+            <p className="text-xs font-semibold text-gray-400">
+              Held directly ({held.size})
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {held.size > 0 ? (
+                [...held].map((resource) => (
+                  <span
+                    key={resource}
+                    className="rounded-full bg-gray-700 px-2.5 py-0.5 font-mono text-xs text-gray-300"
+                  >
+                    {resource}
+                  </span>
+                ))
+              ) : (
+                <span className="text-xs text-gray-500">
+                  None — everything this user can do comes from their roles.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        <form onSubmit={applySearch} className="flex items-center gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search permissions"
+              aria-label="Search permissions"
+              className={`${fieldClass} pl-9`}
+            />
+          </div>
+          <button type="submit" className={pillButtonClass}>
+            Search
+          </button>
+        </form>
+
+        {error && (
+          <p className="text-sm text-red-400" role="alert">
+            {error}
+          </p>
+        )}
+
+        {loading && page === 1 ? (
+          <div className="flex items-center justify-center gap-2 py-8 text-sm text-gray-400">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading permissions…
+          </div>
+        ) : perms.length === 0 ? (
+          <p className="py-8 text-center text-sm text-gray-400">No permissions found.</p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-white/5 rounded-xl border border-white/10">
+            {perms.map((perm) => (
+              <li key={perm.itemId ?? perm.resource}>
+                <label className="flex cursor-pointer items-start gap-3 px-4 py-2.5 transition-colors hover:bg-white/[0.03]">
+                  <input
+                    type="checkbox"
+                    checked={held.has(String(perm.resource))}
+                    onChange={() => toggle(String(perm.resource))}
+                    disabled={!perm.resource || recordLoading}
+                    className="mt-0.5 h-4 w-4 accent-sky-500"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium text-gray-100">
+                      {perm.name ?? perm.resource ?? "Unnamed permission"}
+                    </span>
+                    {perm.description && (
+                      <span className="mt-0.5 block text-xs leading-relaxed text-gray-500">
+                        {perm.description}
+                      </span>
+                    )}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <span className="font-mono text-xs text-gray-500">{perm.resource}</span>
+                    {PERMISSION_TYPE_LABELS[perm.type] && (
+                      <span className="rounded-full bg-gray-700 px-2 py-0.5 text-xs text-gray-300">
+                        {PERMISSION_TYPE_LABELS[perm.type]}
+                      </span>
+                    )}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {perms.length < total && (
+          <button
+            type="button"
+            onClick={() => setPage((current) => current + 1)}
+            disabled={loading}
+            className={pillButtonClass}
+          >
+            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Load more ({total - perms.length} left)
+          </button>
+        )}
+
+        <div className="flex items-center justify-between gap-3 border-t border-white/10 pt-4">
+          <p className="text-xs text-gray-500">
+            Change:{" "}
+            <span className="font-semibold text-emerald-300">+{added.length}</span>{" "}
+            <span className="font-semibold text-red-300">−{removed.length}</span>
+          </p>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onClose} className={ghostButtonClass}>
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              disabled={saving || recordLoading || (added.length === 0 && removed.length === 0)}
+              className={primaryButtonClass}
+            >
+              {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+              Save permissions
+            </button>
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
 const UsersTab = ({ roles, meId, refreshRoles }) => {
   const [users, setUsers] = useState([]);
   const [total, setTotal] = useState(0);
@@ -508,6 +750,7 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [rolesFor, setRolesFor] = useState(null);
+  const [permissionsFor, setPermissionsFor] = useState(null);
   const [confirmId, setConfirmId] = useState(null);
   const [busyId, setBusyId] = useState(null);
   // Per-row shared-CV saving state for invited viewers (the inline dropdown).
@@ -753,6 +996,13 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
                   >
                     Roles
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setPermissionsFor(user)}
+                    className={pillButtonClass}
+                  >
+                    Permissions
+                  </button>
                   {user.itemId !== meId && (
                     <button
                       type="button"
@@ -856,6 +1106,17 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
           onSaved={() => {
             setRolesFor(null);
             setNotice(`${userName(rolesFor)}'s roles updated.`);
+            load();
+          }}
+        />
+      )}
+      {permissionsFor && (
+        <UserPermissionsModal
+          user={permissionsFor}
+          onClose={() => setPermissionsFor(null)}
+          onSaved={() => {
+            setPermissionsFor(null);
+            setNotice(`${userName(permissionsFor)}'s direct permissions updated.`);
             load();
           }}
         />

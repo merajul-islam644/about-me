@@ -118,6 +118,32 @@ export async function setUserRoles({ userId, roles }) {
   });
 }
 
+// One fresh user record — the users list omits direct permissions, but the
+// single get carries them as resource strings
+// ("blocks-data::file::get-files", …).
+export async function fetchUser(userId) {
+  const response = await call("User fetch", () =>
+    blocksClient.iam.users.get(userId)
+  );
+  return response?.data ?? null;
+}
+
+// Direct (per-user) permissions ride the same access endpoint as roles —
+// the portal calls these "user specific" grants. Like the role list, a
+// non-empty permissions array REPLACES the user's whole set, so callers
+// send the complete list the user should end up with; and like roles, the
+// write goes to BOTH organizations (see setUserRoles above).
+export async function setUserPermissions({ userId, permissions }) {
+  await call("Permission update", async () => {
+    await blocksClient.iam.users.updateAccess({
+      userId,
+      permissions,
+      organizationId: PROJECT_ORG_ID,
+    });
+    await blocksClient.iam.users.updateAccess({ userId, permissions });
+  });
+}
+
 export async function listRoles() {
   const response = await call("Listing roles", () =>
     blocksClient.iam.roles.list({ pageNo: 1, pageSize: 100 })

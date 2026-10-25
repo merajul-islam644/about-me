@@ -129,9 +129,17 @@ export const PortfolioProvider = ({ children }) => {
       const pinned = pinnedCvId
         ? content.cvs.find((cv) => cv.id === pinnedCvId)
         : null;
+      // The grant is the ONE CV and nothing else — the same payload shape the
+      // invite webhook replies with. Re-normalizing the bare slice refills
+      // every other field with neutral defaults, so the owner's hero, about,
+      // projects and contact never reach a pinned viewer.
       content = pinned
-        ? { ...content, cvs: [pinned], activeCvId: pinned.id, cv: pinned }
-        : { ...content, cvs: [], activeCvId: null, cv: null };
+        ? normalizeContent({
+            version: content.version,
+            cvs: [pinned],
+            activeCvId: pinned.id,
+          })
+        : normalizeContent({ version: content.version });
       setState({
         status: "ready",
         content,
@@ -202,6 +210,50 @@ export const PortfolioProvider = ({ children }) => {
       }
     }
   }, [authStatus, profile, canEdit, load, loadOwnerView, loadGuestView]);
+
+  // Quiet variant for polling: never flips the page to "loading"; swaps the
+  // content only when the webhook actually returned something different. A
+  // dead link mid-session keeps what's on screen — the next full visit
+  // through loadGuestView clears itself as usual.
+  const pollGuestView = useCallback(async (token) => {
+    try {
+      const result = await fetchGuestContent(token);
+      const next = normalizeContent(result.content);
+      setState((prev) => {
+        const same =
+          prev.status === "ready" &&
+          JSON.stringify(prev.content) === JSON.stringify(next);
+        return same
+          ? prev
+          : { status: "ready", content: next, itemId: null, error: null };
+      });
+      setGuestRole(String(result.role ?? ""));
+    } catch {
+      // keep the last known state; the next poll or visit retries
+    }
+  }, []);
+
+  // The owner can retarget a live link any time — share a different CV or
+  // share none. A guest sitting on the page picks that up without a reload:
+  // a quiet refetch fires when the tab regains focus and once a minute.
+  useEffect(() => {
+    if (authStatus !== "unauthenticated") return undefined;
+    const poll = () => {
+      const guestToken = readGuestToken();
+      if (guestToken) pollGuestView(guestToken);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", poll);
+    const timer = setInterval(poll, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", poll);
+      clearInterval(timer);
+    };
+  }, [authStatus, pollGuestView]);
 
   const save = useCallback(
     async (nextContent) => {

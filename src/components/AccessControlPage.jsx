@@ -1294,7 +1294,7 @@ const STATUS_PILLS = {
   revoked: "bg-red-400/10 text-red-300",
 };
 
-const GuestLinksTab = ({ roles = [] }) => {
+const GuestLinksTab = ({ roles = [], meId }) => {
   const [links, setLinks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -1317,6 +1317,17 @@ const GuestLinksTab = ({ roles = [] }) => {
   // The owner's own CVs — the pickers offer exactly these, by name.
   const { content } = usePortfolio();
   const cvs = content?.cvs ?? [];
+  // Guest links are strictly per-creator: a clouduser sees only the links
+  // they minted — never one another clouduser created. Rows from before
+  // links were stamped carry an empty CreatedBy; those were all the site
+  // owner's, so only the owner still sees them.
+  const isSiteOwner = meId === MERAJ_USER_ID;
+  const visibleLinks = links.filter((row) => {
+    const creator = row.CreatedBy ?? "";
+    if (!creator) return isSiteOwner;
+    return creator === meId;
+  });
+  const hiddenCount = links.length - visibleLinks.length;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1513,13 +1524,13 @@ const GuestLinksTab = ({ roles = [] }) => {
           <Loader2 className="h-4 w-4 animate-spin" />
           Loading links…
         </div>
-      ) : links.length === 0 ? (
+      ) : visibleLinks.length === 0 ? (
         <p className="rounded-2xl border border-white/10 bg-gray-800 px-6 py-10 text-center text-sm text-gray-400">
           No guest links yet — create one above and share the copied URL.
         </p>
       ) : (
         <ul className="flex flex-col divide-y divide-white/5 overflow-hidden rounded-2xl border border-white/10 bg-gray-800 shadow-xl">
-          {[...links]
+          {[...visibleLinks]
             .sort((a, b) => Number(isRevoked(a)) - Number(isRevoked(b)))
             .map((row) => {
               const status = statusOf(row);
@@ -1612,6 +1623,12 @@ const GuestLinksTab = ({ roles = [] }) => {
               );
             })}
         </ul>
+      )}
+      {hiddenCount > 0 && (
+        <p className="text-xs text-gray-500">
+          {hiddenCount} more link{hiddenCount === 1 ? "" : "s"} hidden — you
+          only see the guest links you created.
+        </p>
       )}
     </section>
   );
@@ -1722,7 +1739,7 @@ const AccessControlPage = () => {
             ) : tab === "roles" ? (
               <RolesTab />
             ) : (
-              <GuestLinksTab roles={roles} />
+              <GuestLinksTab roles={roles} meId={profile?.userId} />
             )}
           </>
         )}

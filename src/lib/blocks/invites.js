@@ -18,6 +18,9 @@ const FIELDS = [
   // The one CV this link shares (the CV's id inside the owner's content);
   // empty means nothing is shared and the guest sees an empty state.
   "CvId",
+  // Who minted the link — the guest-links list is scoped to it (the site
+  // owner sees everything, everyone else only their own links).
+  "CreatedBy",
 ];
 
 // Where a /invite/:token landing parks the token for the portfolio provider.
@@ -126,8 +129,10 @@ export async function fetchGuestContent(token) {
 // Owner side: mint a fresh link. `role` is the role slug the holder browses
 // as (e.g. "dataviewer", "clouduser"); empty means a plain guest. `cvId`
 // picks the one CV the webhook will share with this link — empty (the
-// default) shares nothing and the guest sees an empty state. Returns the
-// raw token — the caller builds the shareable URL with inviteLinkFor.
+// default) shares nothing and the guest sees an empty state. The platform
+// stamps CreatedBy with the minting user's id on its own — the links list
+// scopes on that. Returns the raw token — the caller builds the shareable
+// URL with inviteLinkFor.
 export async function createGuestInvite({
   label,
   role = "",

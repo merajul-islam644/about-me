@@ -582,6 +582,16 @@ export function normalizeContent(raw, fallback = lastResortContent) {
     }
   }
 
+  // Viewers this account invited (IAM userIds), recorded at invite time —
+  // the Users tab scopes each clouduser to their own invited viewers.
+  const invitedViewerIds = [
+    ...new Set(
+      (Array.isArray(raw_.invitedViewerIds) ? raw_.invitedViewerIds : []).filter(
+        (id) => typeof id === "string" && id
+      )
+    ),
+  ];
+
   return {
     version: CONTENT_VERSION,
     brand:
@@ -602,6 +612,7 @@ export function normalizeContent(raw, fallback = lastResortContent) {
     cvs,
     activeCvId,
     cvAccessByUser,
+    invitedViewerIds,
     // `cv` mirrors the active CV — every legacy reader (and older saved
     // rows) keeps working untouched.
     cv: activeCv,

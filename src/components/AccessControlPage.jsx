@@ -240,28 +240,35 @@ const InviteModal = ({ roles, canShareCv, onClose, onInvited }) => {
         lastName: lastName.trim(),
         roles: picked,
       });
-      // Pin the invited viewer to the picked CV via the owner's content map
-      // (userId → cvId). The invite itself already succeeded, so a failed
-      // save keeps the modal open with a partial-success message rather
-      // than pretending the whole thing went through.
-      if (cvId && created?.itemId) {
-        const shared = cvs.find((cv) => cv.id === cvId);
-        if (shared) {
-          try {
-            await save({
-              ...content,
-              cvAccessByUser: {
-                ...(content?.cvAccessByUser ?? {}),
-                [created.itemId]: cvId,
-              },
-            });
-          } catch (saveError) {
-            throw new Error(
-              `The invite was created, but saving the shared CV failed: ${
-                saveError.message || "unknown error"
-              }`
-            );
+      // Record the new viewer against this account (the Users tab scopes each
+      // clouduser to their own invited viewers), and pin the picked CV when
+      // one was chosen and this is the site owner. The invite itself already
+      // succeeded, so a failed save keeps the modal open with a partial-
+      // success message rather than pretending the whole thing went through.
+      if (created?.itemId && content) {
+        const next = {
+          ...content,
+          invitedViewerIds: [
+            ...new Set([...(content.invitedViewerIds ?? []), created.itemId]),
+          ],
+        };
+        if (canShareCv && cvId) {
+          const shared = cvs.find((cv) => cv.id === cvId);
+          if (shared) {
+            next.cvAccessByUser = {
+              ...(content.cvAccessByUser ?? {}),
+              [created.itemId]: cvId,
+            };
           }
+        }
+        try {
+          await save(next);
+        } catch (saveError) {
+          throw new Error(
+            `The invite was created, but saving it to your account failed: ${
+              saveError.message || "unknown error"
+            }`
+          );
         }
       }
       onInvited(trimmed);
@@ -597,6 +604,22 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
 
   const lastPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+  // Teams & access scoping: a clouduser sees only themselves and the
+  // dataviewers they invited or shared a CV with — never another clouduser
+  // or another clouduser's viewers. The site owner additionally sees every
+  // dataviewer, since the site's viewers are theirs to administer.
+  const visibleUsers = users.filter((user) => {
+    if (user.itemId === meId) return true;
+    const slugs = roleSlugsOf(user);
+    if (isSiteOwner) return slugs.includes("dataviewer");
+    if (!slugs.includes("dataviewer") || slugs.includes("clouduser")) return false;
+    return (
+      Boolean(content?.cvAccessByUser?.[user.itemId]) ||
+      (content?.invitedViewerIds ?? []).includes(user.itemId)
+    );
+  });
+  const hiddenCount = users.length - visibleUsers.length;
+
   return (
     <section className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -645,13 +668,15 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading users…
           </div>
-        ) : users.length === 0 ? (
+        ) : visibleUsers.length === 0 ? (
           <p className="px-6 py-10 text-center text-sm text-gray-400">
-            No users found{query ? ` for “${query}”` : ""}.
+            No users to show{query ? ` for “${query}”` : ""} — you only see
+            yourself and the viewers you invited or shared a CV with.
           </p>
         ) : (
-          <ul className="flex flex-col divide-y divide-white/5">
-            {users.map((user) => (
+          <>
+            <ul className="flex flex-col divide-y divide-white/5">
+              {visibleUsers.map((user) => (
               <li key={user.itemId ?? user.email} className="flex flex-wrap items-center gap-3 px-4 py-3 sm:px-5">
                 <UserAvatar user={user} />
                 <div className="min-w-0 flex-1">
@@ -760,7 +785,15 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
                 </div>
               </li>
             ))}
-          </ul>
+            </ul>
+            {hiddenCount > 0 && (
+              <p className="border-t border-white/5 px-5 py-2.5 text-xs text-gray-500">
+                {hiddenCount} more user{hiddenCount === 1 ? "" : "s"} hidden —
+                you only see yourself and the viewers you invited or shared a
+                CV with.
+              </p>
+            )}
+          </>
         )}
       </div>
 

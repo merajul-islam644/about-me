@@ -1,25 +1,624 @@
 {
   "security": [
-    { "schemaName": "Portfolio", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "Portfolio", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "Portfolio", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "Portfolio", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentRequest", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentRequest", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentRequest", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentRequest", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentSetting", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentSetting", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentSetting", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "PaymentSetting", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "JobPreference", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "JobPreference", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "JobPreference", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "JobPreference", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "MatchedJob", "operation": 0, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "MatchedJob", "operation": 1, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "MatchedJob", "operation": 2, "policyType": 0, "accessLevel": 1, "fieldNames": [] },
-    { "schemaName": "MatchedJob", "operation": 3, "policyType": 0, "accessLevel": 1, "fieldNames": [] }
+    {
+      "schemaName": "Portfolio",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Portfolio",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Portfolio",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Portfolio",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "JobPreference",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "JobPreference",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "JobPreference",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "JobPreference",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "MatchedJob",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "MatchedJob",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "MatchedJob",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "MatchedJob",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Invite",
+      "operation": 0,
+      "policyType": 0,
+      "accessLevel": 1,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Invite",
+      "operation": 1,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Invite",
+      "operation": 2,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    },
+    {
+      "schemaName": "Invite",
+      "operation": 3,
+      "policyType": 0,
+      "accessLevel": 3,
+      "fieldNames": []
+    }
   ],
-  "policies": []
+  "policies": [
+    {
+      "schemaName": "Portfolio",
+      "policyName": "portfolio-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "Portfolio",
+      "policyName": "portfolio-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "Portfolio",
+      "policyName": "portfolio-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "policyName": "paymentrequest-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "policyName": "paymentrequest-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentRequest",
+      "policyName": "paymentrequest-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "policyName": "paymentsetting-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "policyName": "paymentsetting-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "PaymentSetting",
+      "policyName": "paymentsetting-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "JobPreference",
+      "policyName": "jobpreference-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "JobPreference",
+      "policyName": "jobpreference-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "JobPreference",
+      "policyName": "jobpreference-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "MatchedJob",
+      "policyName": "matchedjob-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "MatchedJob",
+      "policyName": "matchedjob-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "MatchedJob",
+      "policyName": "matchedjob-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "Invite",
+      "policyName": "invite-create-clouduser-only",
+      "policyDescription": "CREATE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 1,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "Invite",
+      "policyName": "invite-edit-clouduser-only",
+      "policyDescription": "EDIT: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 2,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    },
+    {
+      "schemaName": "Invite",
+      "policyName": "invite-delete-clouduser-only",
+      "policyDescription": "DELETE: only principals whose token roles include clouduser — human writers and the workflow service principal pass; read-only dataviewer sessions are denied. READ stays open to any signed-in user.",
+      "policyType": 0,
+      "operation": 3,
+      "fieldNames": [],
+      "priority": 1,
+      "isAllowPolicy": true,
+      "ruleGroup": {
+        "logicalOperator": 0,
+        "rules": [
+          {
+            "leftSource": 0,
+            "leftOperand": "roles",
+            "operator": 6,
+            "rightSource": 2,
+            "rightOperand": "",
+            "rightOperands": [],
+            "staticValue": "clouduser"
+          }
+        ],
+        "nestedGroups": []
+      }
+    }
+  ]
 }

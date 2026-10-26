@@ -60,6 +60,18 @@ export async function checkEmailAvailable(email) {
   return response?.isAvailable ?? response?.IsAvailable ?? true;
 }
 
+// The signed-in account's own organization memberships (organizations/my —
+// built for org switchers, so it rides any member's token, not just admins).
+// Rows come back as {itemId, name}; tolerate string entries too.
+export async function fetchMyOrganizations() {
+  const response = await call("Organization fetch", () =>
+    blocksClient.iam.organizations.my()
+  );
+  return (response?.organizations ?? [])
+    .map((org) => (typeof org === "string" ? org : org?.name))
+    .filter(Boolean);
+}
+
 export async function inviteUser({ email, firstName, lastName, roles = [] }) {
   return call("Invite", async () => {
     // users.create returns no id and its inline roles land in one

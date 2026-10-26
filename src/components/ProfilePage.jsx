@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Bell,
@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
+import { fetchMyOrganizations } from "../lib/blocks/iam";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
 import { ModeTabs } from "./ModeTabs";
 
@@ -33,6 +34,23 @@ const ProfilePage = () => {
     status !== "unauthenticated" && !profile,
   );
   const fileInputRef = useRef(null);
+
+  // The account's own org memberships — organizations/my rides the member
+  // token itself, so this works for plain cloudusers with no admin rights.
+  const [organizations, setOrganizations] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    fetchMyOrganizations()
+      .then((names) => {
+        if (alive) setOrganizations(names);
+      })
+      .catch(() => {
+        if (alive) setOrganizations([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // RequireAuth gates the route, so the profile is settled before we render.
   if (!profile?.userId) return null;
@@ -136,6 +154,22 @@ const ProfilePage = () => {
                       className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs text-sky-300"
                     >
                       {role}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                "—"
+              )}
+            </DetailRow>
+            <DetailRow label="Organizations">
+              {organizations && organizations.length > 0 ? (
+                <span className="flex flex-wrap justify-end gap-1.5 sm:justify-end">
+                  {organizations.map((name) => (
+                    <span
+                      key={name}
+                      className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs text-sky-300"
+                    >
+                      {name}
                     </span>
                   ))}
                 </span>

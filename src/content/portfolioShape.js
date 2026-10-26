@@ -613,6 +613,9 @@ export function normalizeContent(raw, fallback = lastResortContent) {
     activeCvId,
     cvAccessByUser,
     invitedViewerIds,
+    // The first-visit onboarding has run for this account (finished or
+    // skipped) — whitelisted so saves never strip the flag back off.
+    onboarded: raw_.onboarded === true,
     // `cv` mirrors the active CV — every legacy reader (and older saved
     // rows) keeps working untouched.
     cv: activeCv,

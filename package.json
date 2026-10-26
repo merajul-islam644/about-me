@@ -14,6 +14,7 @@
     "@heroicons/react": "^2.2.0",
     "@seliseblocks/client": "^0.2.0",
     "@tailwindcss/vite": "^4.1.18",
+    "canvas-confetti": "^1.9.4",
     "framer-motion": "^12.29.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.563.0",

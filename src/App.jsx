@@ -14,6 +14,7 @@ import JobAlertsPage from "./components/JobAlertsPage";
 import ProfilePage from "./components/ProfilePage";
 import AccessControlPage from "./components/AccessControlPage";
 import InviteLanding from "./components/InviteLanding";
+import OnboardingGate from "./components/Onboarding";
 import { RequireAuth, RedirectIfAuthenticated, RequireEditor } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
@@ -148,6 +149,9 @@ const App = () => {
       {/* The chat launcher floats over every page — it lives outside the
           Routes so route changes never unmount an ongoing conversation. */}
       <Chatbot />
+      {/* First-visit onboarding — greets a brand-new builder once, above
+          everything else, on whatever page they landed on. */}
+      <OnboardingGate />
     </>
   );
 };

@@ -230,9 +230,8 @@ const JobAlertsPage = () => {
               Job Alerts
             </h2>
             <p className="mt-2 text-sm md:text-base text-gray-400">
-              Feed pollers watch remote job boards every 30 minutes — every
-              post that mentions one of your keywords is saved here. Keep the
-              page open and new matches appear on their own.
+              Add keywords for the work you want — matching jobs land here on
+              their own.
             </p>
           </div>
           {NOTIF_SUPPORTED && !notifyOn && Notification.permission === "default" && (
@@ -325,9 +324,8 @@ const JobAlertsPage = () => {
           ) : jobs.length === 0 ? (
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-white/15 p-10 text-center">
               <p className="text-sm text-gray-400">
-                Nothing matched yet. Save some keywords above and wire a source
-                to the workflow&apos;s webhook — matches land here
-                automatically.
+                Nothing here yet. Save a few keywords above and the first
+                matching jobs will start filling this space.
               </p>
             </div>
           ) : (

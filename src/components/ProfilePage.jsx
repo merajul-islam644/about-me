@@ -76,8 +76,10 @@ const ProfilePage = () => {
                 picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""
               } ${uploading ? "opacity-50" : ""}`}
             />
-            {/* Upload is an editor affordance — viewers just have a face. */}
-            {canEdit && (
+            {/* ANY signed-in member can set their own face — role-agnostic
+                by design: the server's storage permissions decide whether
+                the upload lands, and the error below surfaces a refusal. */}
+            {status === "authenticated" && (
               <>
                 <button
                   type="button"

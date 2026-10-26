@@ -42,10 +42,29 @@ function picturePrefix(userId) {
   return userId ? `${LEGACY_PREFIX}-${String(userId).toLowerCase()}` : LEGACY_PREFIX;
 }
 
-function extensionOf(file) {
-  const fromName = file.name?.match(/(\.[a-z0-9]+)$/i)?.[1];
-  if (fromName) return fromName.toLowerCase();
-  return EXTENSIONS_BY_TYPE[file.type] ?? "";
+// Browsers derive File.type from the file EXTENSION, so a JPEG renamed to
+// .png reports "image/png" — and that lie matters: a blob whose bytes don't
+// match its stored type drops out of the storage tree's child listings for
+// everyone but admins (resolve and by-id reads still work), so the
+// guest-link webhook can never find the picture. Sniff the real bytes and
+// store the upload under its honest type instead.
+async function sniffImageType(file) {
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const ascii = String.fromCharCode(...head);
+  if (head[0] === 0x89 && ascii.slice(1, 4) === "PNG") return "image/png";
+  if (head[0] === 0xff && head[1] === 0xd8) return "image/jpeg";
+  if (ascii.startsWith("GIF8")) return "image/gif";
+  if (ascii.slice(0, 4) === "RIFF" && ascii.slice(8, 12) === "WEBP") return "image/webp";
+  return file.type;
+}
+
+// The sniffed type wins; the name's extension is only the last fallback.
+function extensionOf(file, type) {
+  return (
+    EXTENSIONS_BY_TYPE[type] ??
+    file.name?.match(/(\.[a-z0-9]+)$/i)?.[1]?.toLowerCase() ??
+    ""
+  );
 }
 
 // Fire every ACL flavor we have on one resource, all best-effort: `share`
@@ -179,7 +198,8 @@ export async function getProfilePictureUrl(userId) {
 
 export async function uploadProfilePicture(file, userId) {
   if (!file) return null;
-  if (!file.type.startsWith("image/")) {
+  const realType = await sniffImageType(file);
+  if (!realType.startsWith("image/")) {
     throw new Error("Please choose an image file (PNG, JPG, WebP or GIF).");
   }
   if (file.size > MAX_SIZE_BYTES) {
@@ -188,7 +208,7 @@ export async function uploadProfilePicture(file, userId) {
 
   const existing = await findProfileFile(userId);
   const request = {
-    name: `${picturePrefix(userId)}${extensionOf(file)}`,
+    name: `${picturePrefix(userId)}${extensionOf(file, realType)}`,
     parentDirectoryId: PROFILE_DIRECTORY_ID,
     configurationName: CONFIGURATION_NAME,
     // "Public", not "Private": a Private file reads back only for its
@@ -197,7 +217,7 @@ export async function uploadProfilePicture(file, userId) {
     // shown on the public site anyway; the read is a ~5-minute presigned
     // URL, so exposure stays bounded.
     accessModifier: "Public",
-    contentType: file.type,
+    contentType: realType,
   };
   // An existing file becomes a new version instead of a second file.
   if (existing?.itemId) request.itemId = existing.itemId;
@@ -230,7 +250,7 @@ export async function uploadProfilePicture(file, userId) {
   await blocksClient.data.files.uploadToUrl({
     url: uploadUrl,
     body: file,
-    contentType: file.type,
+    contentType: realType,
     headers: presigned?.requiredHeaders ?? {},
   });
 

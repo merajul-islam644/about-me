@@ -824,10 +824,12 @@ const Hero = () => {
           alt={content?.brand || "Profile"}
           className={`w-full h-full object-cover ${t.photoFrame} shadow-lg transition ${picPending ? "scale-110 blur-xl opacity-60 animate-pulse" : ""} ${uploading ? "opacity-50" : ""}`}
         />
-        {/* Mobile: a camera badge pinned to the avatar. Desktop: a full
-            hover overlay. One button, two presentations. Editors only —
-            visitors and viewers browse read-only. */}
-        {canEdit && (
+            {/* Mobile: a camera badge pinned to the avatar. Desktop: a full
+                hover overlay. One button, two presentations. ANY signed-in
+                member can set their own face — the server's storage
+                permissions, not the role, decide whether the upload lands
+                (a viewer without the grant sees the error under the photo). */}
+            {authed && (
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}

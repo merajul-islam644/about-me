@@ -30,26 +30,20 @@ export const getMode = (pathname, search = "") => {
   return MODES.find((mode) => mode.match(pathname)) ?? MODES[0];
 };
 
-// The navbar is fully mode-native. Portfolio mode ends with the CV shelf —
-// the one owner destination in the bar (the portfolio shelf and portfolio
-// editor live on at their URLs, /library and /edit, but no longer sit in
-// the menu). CV mode is the owner's workspace: its menu carries My CV plus
-// the Job Alerts dashboard. Signed-out visitors clicking it
-// are sent to login first.
-export const getMenuForMode = (modeKey) =>
-  modeKey === "cv"
-    ? [
-        { name: "My CV", to: "/cv/library" },
-        { name: "Job Alerts", to: "/cv/jobs" },
-      ]
-    : [
-        { name: "Intro", to: "/" },
-        { name: "About", to: "/about" },
-        { name: "Skills", to: "/skills" },
-        { name: "Projects", to: "/projects" },
-        { name: "Contact", to: "/contact" },
-        { name: "My CV", to: "/cv/library" },
-      ];
+// The navbar keeps the whole menu in every mode — the content tour, the CV
+// shelf and the Job Alerts dashboard never hide, whichever tab you're on
+// (the portfolio shelf and portfolio editor live on at their URLs, /library
+// and /edit, but no longer sit in the menu). Signed-out visitors clicking a
+// CV link are sent to login first.
+export const getMenuForMode = () => [
+  { name: "Intro", to: "/" },
+  { name: "About", to: "/about" },
+  { name: "Skills", to: "/skills" },
+  { name: "Projects", to: "/projects" },
+  { name: "Contact", to: "/contact" },
+  { name: "My CV", to: "/cv/library" },
+  { name: "Job Alerts", to: "/cv/jobs" },
+];
 
 // Guest-link holders browse like a DataViewer member who never signs in —
 // the bar carries only the content tour, and "My CV" reads the CV itself

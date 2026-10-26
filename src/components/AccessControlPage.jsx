@@ -862,7 +862,6 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
       (content?.invitedViewerIds ?? []).includes(user.itemId)
     );
   });
-  const hiddenCount = users.length - visibleUsers.length;
 
   return (
     <section className="flex flex-col gap-4">
@@ -1037,13 +1036,6 @@ const UsersTab = ({ roles, meId, refreshRoles }) => {
               </li>
             ))}
             </ul>
-            {hiddenCount > 0 && (
-              <p className="border-t border-white/5 px-5 py-2.5 text-xs text-gray-500">
-                {hiddenCount} more user{hiddenCount === 1 ? "" : "s"} hidden —
-                you only see yourself and the viewers you invited or shared a
-                CV with.
-              </p>
-            )}
           </>
         )}
       </div>
@@ -1589,7 +1581,6 @@ const GuestLinksTab = ({ roles = [], meId }) => {
     if (!creator) return isSiteOwner;
     return creator === meId;
   });
-  const hiddenCount = links.length - visibleLinks.length;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -1886,12 +1877,6 @@ const GuestLinksTab = ({ roles = [], meId }) => {
             })}
         </ul>
       )}
-      {hiddenCount > 0 && (
-        <p className="text-xs text-gray-500">
-          {hiddenCount} more link{hiddenCount === 1 ? "" : "s"} hidden — you
-          only see the guest links you created.
-        </p>
-      )}
     </section>
   );
 };
@@ -1950,9 +1935,9 @@ const AccessControlPage = () => {
         <header>
           <h2 className="text-3xl font-bold text-sky-400 md:text-4xl">Team &amp; access</h2>
           <p className="mt-2 text-sm text-gray-400 md:text-base">
-            Invite people into this project and control exactly what their
-            roles let them see and do. Guest links hand out read-only access
-            without an account.
+            Invite your people and decide how far each one gets — roles for
+            teammates, one shared CV for viewers, and guest links that need
+            no account at all.
           </p>
         </header>
 

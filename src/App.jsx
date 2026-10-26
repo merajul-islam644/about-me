@@ -15,6 +15,7 @@ import ProfilePage from "./components/ProfilePage";
 import AccessControlPage from "./components/AccessControlPage";
 import InviteLanding from "./components/InviteLanding";
 import OnboardingGate from "./components/Onboarding";
+import DesignGuidePage from "./components/cv/DesignGuidePage";
 import { RequireAuth, RedirectIfAuthenticated, RequireEditor } from "./auth/guards";
 import { PortfolioGate } from "./components/PortfolioGate";
 
@@ -30,6 +31,10 @@ const App = () => {
         <Route element={<PortfolioGate />}>
           <Route path="/" element={<Hero />} />
           <Route path="/cv" element={<Hero />} />
+          {/* The design school — the long-form guide behind the Guidelines
+              button. Open reading: no sign-in, like the rest of the
+              showcase. */}
+          <Route path="/cv/design-guide" element={<DesignGuidePage />} />
           {/* CV mode is a single document — every section lives on /cv.
               The old sub-page URLs redirect there, and so does the retired
               editor's URL: /cv itself is the editor now (per-section

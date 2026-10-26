@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Eye, Loader2, X } from "lucide-react";
+import { Eye, GraduationCap, Loader2, X } from "lucide-react";
 import { CvMiniPreview } from "./CvMiniPreview";
 import { CV_DESIGNS, designComboKey } from "./cvDesign";
 
@@ -118,6 +118,7 @@ export const DesignGallery = ({
   onClose,
   localOnly = false,
   onResetLocal = null,
+  onGuide = null,
 }) => {
   // The print-preview overlay: one design at a time, its PDF built on
   // demand and shown in the browser's own PDF viewer. The blob URL lives in
@@ -233,17 +234,30 @@ export const DesignGallery = ({
               {error}
             </span>
           )}
-          {/* Visitors' picks ride on a per-device preference — this chip
-              hands the saved design back. */}
-          {localOnly && onResetLocal && (
-            <button
-              type="button"
-              onClick={onResetLocal}
-              className="ml-auto cursor-pointer rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300"
-            >
-              Reset to the saved design
-            </button>
-          )}
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            {/* The cheat sheet — recipe + ship checklist while choosing. */}
+            {onGuide && (
+              <button
+                type="button"
+                onClick={onGuide}
+                title="The design recipe and ship checklist"
+                className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300"
+              >
+                <GraduationCap className="h-3.5 w-3.5" /> Cheat sheet
+              </button>
+            )}
+            {/* Visitors' picks ride on a per-device preference — this chip
+                hands the saved design back. */}
+            {localOnly && onResetLocal && (
+              <button
+                type="button"
+                onClick={onResetLocal}
+                className="cursor-pointer rounded-full border border-white/10 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-colors hover:border-sky-400/50 hover:text-sky-300"
+              >
+                Reset to the saved design
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

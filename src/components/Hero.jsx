@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Camera, Check, Download, FileX, Loader2, Palette, Pencil, Plus, Printer, X } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
@@ -85,6 +85,7 @@ const Hero = () => {
     status !== "unauthenticated" && !profile,
   );
   const { pathname } = useLocation();
+  const navigate = useNavigate();
 
   // CV mode swaps the words, not the face: same layout and picture, but the
   // ACTIVE CV's hero fields (the owner picks which of their CVs is public)
@@ -538,8 +539,8 @@ const Hero = () => {
   const guidelinesBtn = (
     <button
       type="button"
-      onClick={() => setGuideOpen(true)}
-      title="How this design works"
+      onClick={() => navigate("/cv/design-guide")}
+      title="Open the design school"
       className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/10 bg-gray-900 px-3.5 py-1.5 text-xs font-semibold text-gray-200 shadow-lg transition-colors hover:border-sky-400/50 hover:text-sky-300"
     >
       <Palette className="h-4 w-4 text-sky-400" />
@@ -1336,17 +1337,23 @@ const Hero = () => {
         content={content}
         picture={picture}
         onPick={handlePickDesign}
+        onGuide={() => setGuideOpen(true)}
         onClose={() => setDesignOpen(false)}
       />
-      {/* The design school — the recipe behind this look, in the active
-          design's own accent. Its footer door hands the reader straight to
-          the gallery above. */}
+      {/* The design cheat sheet — the pocket version of the school the
+          Guidelines button opens. The gallery's footer chip hands browsers
+          a quick recipe + ship-checklist without leaving the picker; its
+          door leads on to the full page. */}
       <DesignGuide
         open={guideOpen}
         design={design}
         onBrowse={() => {
           setGuideOpen(false);
           setDesignOpen(true);
+        }}
+        onFull={() => {
+          setGuideOpen(false);
+          navigate("/cv/design-guide");
         }}
         onClose={() => setGuideOpen(false)}
       />

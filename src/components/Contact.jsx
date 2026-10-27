@@ -3,11 +3,18 @@ import { motion } from "framer-motion";
 import { Mail, Github, Linkedin, Link2, Loader2 } from "lucide-react";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { sendContactEmail } from "../lib/blocks/mail";
+import { metaText, usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
 const Contact = () => {
   const { content } = usePortfolio();
   const contact = content?.contact;
+
+  // The tab pair restates the invitation — the intro line already says it.
+  usePageMeta({
+    title: `Contact — ${content?.brand ?? "Portfolio"}`,
+    description: metaText(contact?.intro),
+  });
 
   // The contact form delivers to the owner's email link address.
   const ownerEmail = contact?.mail?.href?.replace(/^mailto:/i, "").trim() ?? "";
@@ -99,14 +106,14 @@ const Contact = () => {
           variants={cardVariants}
           whileHover={{ scale: 1.02 }}
         >
-          <motion.h2
+          <motion.h1
             className="text-4xl font-bold text-sky-400 mb-6 text-center"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
             Get in Touch
-          </motion.h2>
+          </motion.h1>
 
           <motion.p
             className="text-gray-300 text-lg mb-8 text-center"

@@ -7,6 +7,7 @@ import {
   getActivePortfolio,
   normalizeContent,
 } from "../content/portfolioShape";
+import { usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
 const emptyDraft = { title: "", desc: "", github: "", live: "" };
@@ -21,6 +22,13 @@ const Projects = () => {
   const { content, save } = usePortfolio();
   const { canEdit } = useAuth();
   const projects = content?.projects ?? [];
+
+  // The tab pair sells the wall: whose work it is and what a visitor gets
+  // on the cards (code + live demo, exactly what the links offer).
+  usePageMeta({
+    title: `Projects — ${content?.brand ?? "Portfolio"}`,
+    description: `Selected work by ${(content?.brand ?? "this developer").trim()} — what each project does, with code and live demos.`,
+  });
 
   // The Add Project flow: an "Add Project" button — centered in the empty
   // state, top-right once cards exist — opens a modal; saving appends the
@@ -110,14 +118,14 @@ const Projects = () => {
           </button>
         )}
 
-        <motion.h2
+        <motion.h1
           className="text-4xl font-bold mb-10 text-sky-400 text-center"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
           Projects
-        </motion.h2>
+        </motion.h1>
 
         {projects.length === 0 ? (
           <motion.div
@@ -149,13 +157,13 @@ const Projects = () => {
             {projects.map(({ id, title, desc, github, live }) => (
               <motion.div
                 key={id}
-                className="bg-gray-700 rounded-xl shadow-lg p-6 w-72 flex flex-col justify-between cursor-pointer"
+                className="w-72 rounded-xl border border-white/10 bg-gray-700 shadow-lg p-6 flex flex-col justify-between cursor-pointer"
                 variants={cardVariants}
                 whileHover={{ scale: 1.05, boxShadow: "0 15px 25px rgba(0,0,0,0.3)" }}
               >
                 <div>
                   <h3 className="text-2xl font-semibold mb-2 text-white">{title}</h3>
-                  <p className="text-gray-300 mb-4">{desc}</p>
+                  <p className="text-sm leading-relaxed text-gray-300 mb-4">{desc}</p>
                 </div>
                 {(github || live) && (
                   <div className="flex gap-4 justify-center mt-4">

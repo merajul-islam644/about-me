@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Camera, Check, Download, FileX, Loader2, Palette, Pencil, Plus, Printer, X } from "lucide-react";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
@@ -21,6 +21,7 @@ import {
   SKILL_COLOR_OPTIONS,
 } from "../content/portfolioShape";
 import { getMode } from "../modes";
+import { metaText, usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 import { CvDocument } from "./cv/CvDocument";
 import { DesignGallery } from "./cv/DesignGallery";
@@ -99,6 +100,20 @@ const Hero = () => {
   // and never a broken render.
   const cvGate = isCvPath && !activeCv && (guest || (authed && !canEdit));
   const hero = cvMode ? activeCv : content?.hero;
+  // Tab title + share tags ride the page on screen: the person and their
+  // headline in portfolio mode, the document itself in CV mode.
+  usePageMeta(
+    cvMode
+      ? {
+          title: `${content?.brand ?? "Portfolio"} — CV`,
+          description:
+            "A designed, print-ready CV — read it in the browser, download the PDF, then build one of your own.",
+        }
+      : {
+          title: `${content?.brand ?? "Portfolio"} — ${hero?.title ?? "Portfolio"}`,
+          description: metaText(hero?.bio?.text),
+        }
+  );
   // The active CV's visual design — the whole /cv page (headline, document,
   // and the PDF through the stored field) renders in it. Portfolio pages
   // keep the dark showcase unconditionally. Visitors can't write the owner's
@@ -1308,6 +1323,31 @@ const Hero = () => {
               </>
             )}
           </motion.div>
+        </div>
+      )}
+
+      {/* The demo door — a signed-out visitor is browsing a sample page, so
+          the homepage names the product underneath and offers the one next
+          action: build their own. Guests are invitees reading one person's
+          work, not prospects — no strip for them. */}
+      {!isCvPath && !authed && !guest && (
+        <div className="mx-auto mb-16 w-full max-w-3xl px-6">
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-white/10 bg-gray-800/60 px-8 py-10 text-center shadow-xl">
+            <h2 className="text-2xl font-bold text-white">
+              This page is a live demo
+            </h2>
+            <p className="max-w-xl text-sm leading-relaxed text-gray-400 sm:text-base">
+              Portfolio pages you edit right on the page, a designed CV with
+              100 ready designs, job alerts for the work you want — sign in
+              and build yours.
+            </p>
+            <Link
+              to="/login?returnTo=%2Fedit"
+              className="inline-flex cursor-pointer items-center gap-1.5 rounded-full bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-sky-500/25 transition-colors hover:bg-sky-400"
+            >
+              Build your own
+            </Link>
+          </div>
         </div>
       )}
 

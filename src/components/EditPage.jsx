@@ -4,6 +4,7 @@ import { useAuth } from "../auth/auth-context";
 import { usePortfolio } from "../portfolio/portfolio-context";
 import { normalizeContent, getActivePortfolio } from "../content/portfolioShape";
 import { TextField } from "./edit/fields";
+import { usePageMeta } from "../lib/usePageMeta";
 import { FREE_PROJECT_LIMIT, isAdminProfile, useEntitlement } from "../payments/useEntitlement";
 import { HeroForm } from "./edit/HeroForm";
 import { AboutForm } from "./edit/AboutForm";
@@ -86,6 +87,14 @@ const EditPage = () => {
     [activeKey, sections]
   );
 
+  // The tab names the editor and its owner; hook sits above the draft
+  // guard's early return.
+  usePageMeta({
+    title: `Edit portfolio — ${content?.brand ?? "Portfolio"}`,
+    description:
+      "Edit your hero, story, skills, projects and contact — changes show on your live pages as soon as you save.",
+  });
+
   if (!draft) return null;
 
   const dirty = JSON.stringify(draft) !== JSON.stringify(content);
@@ -124,9 +133,9 @@ const EditPage = () => {
       <div className="max-w-3xl mx-auto flex flex-col gap-6 pb-28">
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-sky-400">
+            <h1 className="text-3xl md:text-4xl font-bold text-sky-400">
               Edit portfolio
-            </h2>
+            </h1>
             <p className="text-gray-400 mt-2 text-sm md:text-base">
               Changes show on your live pages as soon as you save. You are
               editing “{activePortfolio?.name ?? "your portfolio"}”.

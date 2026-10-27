@@ -40,6 +40,7 @@ import {
   setInviteCv,
 } from "../lib/blocks/invites";
 import { usePortfolio } from "../portfolio/portfolio-context";
+import { usePageMeta } from "../lib/usePageMeta";
 
 // Access control, reached from the Profile page: invite users into the
 // tenant and shape the roles & permissions they get — the same IAM admin
@@ -1925,6 +1926,15 @@ const AccessControlPage = () => {
     loadRoles();
   }, [loadRoles, bootAttempt]);
 
+  // The tab names the admin page; the description is the intro line the
+  // page itself opens with.
+  const { content } = usePortfolio();
+  usePageMeta({
+    title: `Team & access — ${content?.brand ?? "Portfolio"}`,
+    description:
+      "Invite your people and decide how far each one gets — roles for teammates, one shared CV for viewers, and guest links that need no account.",
+  });
+
   return (
     <div className="relative min-h-[calc(100vh-64px)] flex flex-col bg-gray-900">
       <div className="flex justify-center px-6 pt-6">
@@ -1933,7 +1943,7 @@ const AccessControlPage = () => {
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 md:px-6">
         <header>
-          <h2 className="text-3xl font-bold text-sky-400 md:text-4xl">Team &amp; access</h2>
+          <h1 className="text-3xl font-bold text-sky-400 md:text-4xl">Team &amp; access</h1>
           <p className="mt-2 text-sm text-gray-400 md:text-base">
             Invite your people and decide how far each one gets — roles for
             teammates, one shared CV for viewers, and guest links that need

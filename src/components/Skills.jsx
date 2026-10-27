@@ -7,6 +7,7 @@ import {
   getActivePortfolio,
   normalizeContent,
 } from "../content/portfolioShape";
+import { usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
 const Skills = () => {
@@ -20,6 +21,16 @@ const Skills = () => {
   const [draftText, setDraftText] = useState("");
   const [saveState, setSaveState] = useState(null); // null | "saved" | error message
   const authed = status === "authenticated";
+
+  // The tab pair carries the stack itself — the skill list IS this page's
+  // search snippet.
+  const skills = content?.skills ?? [];
+  usePageMeta({
+    title: `Skills — ${content?.brand ?? "Portfolio"}`,
+    description: skills.length
+      ? `The tools ${(content?.brand ?? "this developer").trim()} works with: ${skills.join(", ")}.`
+      : `The tools ${(content?.brand ?? "this developer").trim()} works with.`,
+  });
 
   const startEdit = () => {
     setDraftText((content?.skills ?? []).join("\n"));
@@ -88,14 +99,14 @@ const Skills = () => {
           </span>
         )}
 
-        <motion.h2
+        <motion.h1
           className="text-4xl font-bold mb-10 text-sky-400"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
           Skills
-        </motion.h2>
+        </motion.h1>
 
         {editing ? (
           <div className="w-full max-w-md flex flex-col gap-2">

@@ -237,7 +237,7 @@ const SectionEditor = ({ section, onChange, onSave, onCancel, error, t }) => {
 const EntryItem = ({ item, t }) => (
   <article className={t.entryCard}>
     <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-      <h4 className={t.entryHeading}>{item.heading}</h4>
+      <h3 className={t.entryHeading}>{item.heading}</h3>
       {item.period && (
         <span className={t.entryPeriod}>{item.period}</span>
       )}
@@ -386,7 +386,9 @@ const SectionCard = ({
         headline
       ) : (
         <>
-          <h3 className={t.sectionTitle}>{section.title}</h3>
+          {/* Section titles are h2 — the headline card above is the page's
+              h1, so the outline steps h1 → h2 → h3 with no skips. */}
+          <h2 className={t.sectionTitle}>{section.title}</h2>
           <div className="mt-3 flex flex-col gap-3">
             {section.type === "entry" &&
               (section.layout === "grid" ? (
@@ -405,7 +407,7 @@ const SectionCard = ({
                       {section.items.map((item) => (
                         <tr key={item.id}>
                           <td className={t.tableCell}>
-                            <h4 className={t.entryHeading}>{item.heading}</h4>
+                            <h3 className={t.entryHeading}>{item.heading}</h3>
                             {item.details && (
                               <div className="mt-1">
                                 <p className={t.entryDetailsFlat}>{item.details}</p>

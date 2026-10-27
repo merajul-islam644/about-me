@@ -85,9 +85,11 @@ const Navbar = () => {
   return (
     <nav className="bg-gray-800 sticky top-0 z-50 shadow-md">
       <div className="max-w-7xl mx-auto px-6 flex justify-between items-center h-16">
-        <h2 className="text-2xl font-bold text-sky-400">
+        {/* The brand is a label, not a section heading — keeping it out of
+            the h1..h6 outline lets each page's own h1 lead the document. */}
+        <div className="text-2xl font-bold text-sky-400">
           {content?.brand ?? "Merajul"}
-        </h2>
+        </div>
 
         <div className="flex items-center gap-3">
           <ul className="hidden md:flex gap-6 items-center">

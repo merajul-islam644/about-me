@@ -58,11 +58,16 @@ export const merajPortfolio = {
   ],
   projects: [],
   contact: {
+    // The persona's reach-me links — every address here is one the sample
+    // data already uses (the CV header strip carries the same email and
+    // LinkedIn, the sample projects the same GitHub org), so the contact
+    // page agrees with the rest of the demo instead of drifting to
+    // "yourusername" placeholders.
     intro:
-      "I’m open to discussing new projects, freelance opportunities, or collaborations. Let’s create something amazing together!",
-    mail: { href: "mailto:meraj@example.com", label: "meraj@example.com" },
-    github: { href: "#", label: "github.com/yourusername" },
-    linkedin: { href: "#", label: "linkedin.com/in/yourprofile" },
+      "I'm open to new projects, freelance work, and collaborations — send a message below or reach me directly on any of these.",
+    mail: { href: "mailto:jon.doe@example.com", label: "jon.doe@example.com" },
+    github: { href: "https://github.com/johndoe", label: "github.com/johndoe" },
+    linkedin: { href: "https://linkedin.com/in/jondoe", label: "linkedin.com/in/jondoe" },
   },
 };
 
@@ -80,17 +85,31 @@ export const visitorPortfolio = {
   // projects below survive normalization.
   version: CONTENT_VERSION,
   brand: "Jon Doe",
-  hero: { ...merajPortfolio.hero, greeting: "Hi, I'm Jon Doe" },
-  // The spread drags in Meraj's real About paragraph, employer name
-  // included — the public persona swaps in an example company instead.
+  hero: {
+    ...merajPortfolio.hero,
+    greeting: "Hi, I'm Jon Doe",
+    // The demo persona's headline and intro borrow only facts the sample
+    // CV below already states (React/Next.js/Tailwind, features owned from
+    // design hand-off to production) — same truths, plainer words.
+    title: "Frontend Developer — React & Next.js",
+    bio: {
+      text: "I build fast, accessible web applications with **React, Next.js, and Tailwind CSS**, owning features from design hand-off to production. Clean code, responsive layouts, and interfaces that feel effortless to use.",
+      accentClass: "text-sky-400 font-medium",
+    },
+  },
+  // The demo persona's own About: the employer fact stays the sample CV's
+  // (Contoso, enterprise platform, code review) — told in the same voice
+  // as the CV's Profile section.
   about: {
-    ...merajPortfolio.about,
     paragraphs: [
       {
-        text: "I am a **Software Engineering Intern at Contoso Ltd.**, building scalable and modern web applications. I enjoy solving challenging problems, learning new technologies, and creating user-friendly solutions that make a real impact.",
+        text: "I am a **Software Engineering Intern at Contoso Ltd.**, building production web features for an enterprise platform — and learning the craft from senior engineers who review every line.",
         accentClass: "font-semibold text-white",
       },
-      ...merajPortfolio.about.paragraphs.slice(1),
+      {
+        text: "I learn best by building — most of what I know comes from shipping real projects, breaking them, and fixing them again.",
+        accentClass: "text-sky-400 font-medium",
+      },
     ],
   },
   // The Projects page needs something to show — three sample works (the

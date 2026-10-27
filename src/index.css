@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* The app is a dark showcase — give the canvas itself the dark default so
+   overscroll and before-first-paint never flash white, form controls and
+   scrollbars render in their dark variants, and only the page components
+   pick a different surface. */
+body {
+  background-color: var(--color-gray-900);
+  color-scheme: dark;
+}
+
 /* The chat list scrolls, but its scrollbar stays invisible — the panel is
    tight, and wheel, trackpad and touch still scroll normally. */
 .scrollbar-hidden {

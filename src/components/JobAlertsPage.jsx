@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../auth/auth-context";
+import { usePortfolio } from "../portfolio/portfolio-context";
 import { Bell, Check, Clock, ExternalLink, Loader2, RefreshCw, Save, Trash2 } from "lucide-react";
 import { ModeTabs } from "./ModeTabs";
+import { usePageMeta } from "../lib/usePageMeta";
 import {
   deleteMatchedJob,
   ensureJobPreference,
@@ -63,7 +65,16 @@ const actionPillClass =
 
 const JobAlertsPage = () => {
   const { profile, canEdit } = useAuth();
+  const { content } = usePortfolio();
   const userId = profile?.userId;
+
+  // The tab names the dashboard; the hook sits with the other hooks, above
+  // the content guard's early return.
+  usePageMeta({
+    title: `Job Alerts — ${content?.brand ?? "Portfolio"}`,
+    description:
+      "The keywords watched for you and the matching jobs they caught — one dashboard.",
+  });
 
   const [pref, setPref] = useState(null);
   const [keywords, setKeywords] = useState("");
@@ -226,9 +237,9 @@ const JobAlertsPage = () => {
       <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 px-4 py-8 md:px-6">
         <header className="flex flex-col gap-3">
           <div>
-            <h2 className="text-3xl md:text-4xl font-bold text-sky-400">
+            <h1 className="text-3xl md:text-4xl font-bold text-sky-400">
               Job Alerts
-            </h2>
+            </h1>
             <p className="mt-2 text-sm md:text-base text-gray-400">
               Add keywords for the work you want — matching jobs land here on
               their own.

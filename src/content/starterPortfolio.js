@@ -53,7 +53,8 @@ export const starterPortfolio = (profile) => {
       },
     ],
     contact: {
-      intro: "Let's create something amazing together!",
+      intro:
+        "I'm open to new projects and collaborations — edit this line to say what you're open to.",
       mail: { href: email ? `mailto:${email}` : "#", label: email || "you@example.com" },
       github: { href: "#", label: "github.com/yourusername" },
       linkedin: { href: "#", label: "linkedin.com/in/yourprofile" },

@@ -2,6 +2,7 @@ import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { usePortfolio } from "../../portfolio/portfolio-context";
 import { getActiveCv } from "../../content/portfolioShape";
+import { usePageMeta } from "../../lib/usePageMeta";
 import guideCoach from "../../assets/design-guide-coach.png";
 import { ModeTabs } from "../ModeTabs";
 import { DesignGuideBody } from "./DesignGuideBody";
@@ -36,6 +37,14 @@ const DesignGuidePage = () => {
     if (window.history.state && window.history.state.idx > 0) navigate(-1);
     else navigate("/cv");
   };
+
+  // The school is the site's one open reading page — its tab pair is
+  // written for someone who found the URL outside the app.
+  usePageMeta({
+    title: "CV design school — nine principles",
+    description:
+      "Nine short principles for designing a CV that reads well — type, hierarchy, color and restraint, with live specimens. Apply them with 100 ready designs.",
+  });
 
   return (
     // The standard page shell — flat gray-900 like the shelves and Job

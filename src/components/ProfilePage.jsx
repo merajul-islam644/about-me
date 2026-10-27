@@ -13,6 +13,7 @@ import { useAuth } from "../auth/auth-context";
 import { useProfilePicture } from "../portfolio/useProfilePicture";
 import { fetchMyOrganizations } from "../lib/blocks/iam";
 import visitorAvatar from "../assets/visitor-avatar.jpg";
+import { usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
 // The signed-in account page, reached from the navbar avatar dropdown.
@@ -53,6 +54,13 @@ const ProfilePage = () => {
   }, []);
 
   // RequireAuth gates the route, so the profile is settled before we render.
+  // The tab hook sits above the guard's early return, with the other hooks.
+  usePageMeta({
+    title: "Profile",
+    description:
+      "Your account at a glance — picture, identity and the places you build.",
+  });
+
   if (!profile?.userId) return null;
 
   const displayName =
@@ -77,7 +85,7 @@ const ProfilePage = () => {
 
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-8 md:px-6">
         <header>
-          <h2 className="text-3xl font-bold text-sky-400 md:text-4xl">Profile</h2>
+          <h1 className="text-3xl font-bold text-sky-400 md:text-4xl">Profile</h1>
           <p className="mt-2 text-sm text-gray-400 md:text-base">
             Your account at a glance — picture, identity and the places you
             build.

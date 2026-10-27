@@ -11,6 +11,7 @@ import {
   getActivePortfolio,
   normalizeContent,
 } from "../content/portfolioShape";
+import { metaText, usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
 // The About text reads as one plain block: paragraphs separated by a blank
@@ -49,6 +50,13 @@ const About = () => {
   const [draftText, setDraftText] = useState("");
   const [saveState, setSaveState] = useState(null); // null | "saved" | error message
   const authed = status === "authenticated";
+
+  // The tab names the page and its owner; the description borrows the
+  // opening paragraph — the story's own first line sells the page.
+  usePageMeta({
+    title: `About — ${content?.brand ?? "Portfolio"}`,
+    description: metaText(content?.about?.paragraphs?.[0]?.text),
+  });
 
   const startEdit = () => {
     setDraftText(paragraphsToText(content?.about?.paragraphs));
@@ -118,7 +126,7 @@ const About = () => {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, delay: 0.3 }}
         >
-          <h2 className="text-4xl font-bold mb-4 text-sky-400">About Me</h2>
+          <h1 className="text-4xl font-bold mb-4 text-sky-400">About Me</h1>
 
           {editing ? (
             <div className="flex flex-col gap-2 text-left">

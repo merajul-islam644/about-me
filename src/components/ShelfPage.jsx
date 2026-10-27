@@ -24,6 +24,7 @@ import {
 } from "../content/portfolioShape";
 import { ModeTabs } from "./ModeTabs";
 import { NewCvModal } from "./cv/NewCvModal";
+import { usePageMeta } from "../lib/usePageMeta";
 
 const newId = (prefix) =>
   typeof crypto !== "undefined" && crypto.randomUUID
@@ -186,6 +187,13 @@ export const ShelfPage = ({ kind }) => {
   // pick persists per device, so a refresh reopens the same layout.
   const [shelfView, setShelfView] = useState(readShelfView);
 
+  // The tab names the shelf and its owner. Hook order matters: this sits
+  // above the content guard's early return, so it runs on every render.
+  usePageMeta({
+    title: `${spec.title} — ${content?.brand ?? "Portfolio"}`,
+    description: spec.intro,
+  });
+
   if (!content) return null;
 
   const items = spec.list(content);
@@ -340,9 +348,9 @@ export const ShelfPage = ({ kind }) => {
 
       <div className="max-w-3xl mx-auto w-full flex flex-col gap-6 px-4 py-8 md:px-6">
         <header>
-          <h2 className="text-3xl md:text-4xl font-bold text-sky-400">
+          <h1 className="text-3xl md:text-4xl font-bold text-sky-400">
             {spec.title}
-          </h2>
+          </h1>
           <p className="mt-2 text-sm md:text-base text-gray-400">
             {spec.intro}
           </p>

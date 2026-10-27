@@ -1,28 +1,54 @@
 import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Lock, Loader2, Palette } from "lucide-react";
+import { ArrowRight, BellRing, FileText, Lock, Loader2, Palette } from "lucide-react";
 import { useAuth } from "../auth/auth-context";
+import { usePortfolio } from "../portfolio/portfolio-context";
 import { isLoginConfigured } from "../lib/blocks/config";
 import { startSignup } from "../lib/blocks/auth";
+import { usePageMeta } from "../lib/usePageMeta";
 import { ModeTabs } from "./ModeTabs";
 
+// The sign-in pitch names what signing in actually unlocks — the builder's
+// three real doors, in the app's own vocabulary (the same wording the
+// onboarding wizard and the starter content use).
 const highlights = [
   {
     icon: Palette,
-    title: "Everything, unlocked",
-    text: "Projects, skills and the story behind them — all behind one door.",
+    title: "A portfolio you edit on the page",
+    text: "Your story, your stack, your work — edited right where visitors see it.",
+  },
+  {
+    icon: FileText,
+    title: "A CV that ships as a PDF",
+    text: "Pick from ready designs, fill your sections, then print or download the finished document.",
+  },
+  {
+    icon: BellRing,
+    title: "Job alerts while you build",
+    text: "Set keywords once — matching jobs land in your alerts on their own.",
   },
 ];
 
 const LoginPage = () => {
   const { login } = useAuth();
+  const { content } = usePortfolio();
+  // The persona's name in the pitch follows the site's own brand — the
+  // signed-in builder sees their site calling them to it, not "Jon Doe".
+  const brand = content?.brand ?? "Jon Doe";
   const [pending, setPending] = useState(false);
   const configured = isLoginConfigured();
   const [searchParams] = useSearchParams();
   // "Edit portfolio" clicks from signed-out visitors arrive as
   // ?returnTo=%2Fedit — keep that destination through the hosted round-trip.
   const returnTo = searchParams.get("returnTo") || "/";
+
+  // The tab: the action and the site it returns to.
+  usePageMeta({
+    title: `Sign in — ${brand}`,
+    description:
+      "Sign in to build your own portfolio, design a CV from ready templates, and set job alerts for the work you want.",
+  });
 
   const handleLogin = async () => {
     setPending(true);
@@ -83,17 +109,18 @@ const LoginPage = () => {
           transition={{ duration: 0.8 }}
         >
           <p className="text-sky-400 font-semibold tracking-widest uppercase text-sm mb-4">
-            Jon Doe's corner of the internet
+            {brand}'s corner of the internet
           </p>
           <h1 className="text-4xl lg:text-5xl font-bold text-white leading-tight">
-            A portfolio that's{" "}
+            One home for{" "}
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-indigo-400">
-              yours to unlock
-            </span>
+              your work
+            </span>{" "}
+            — and the CV behind it
           </h1>
           <p className="text-gray-300 mt-4 text-lg">
-            The full picture — work, craft and code — lives behind one secure
-            sign-in.
+            Sign in to make this portfolio yours, design a CV, and let job
+            alerts watch for the work you want.
           </p>
 
           <ul className="mt-10 space-y-6">
@@ -134,7 +161,7 @@ const LoginPage = () => {
 
           <h2 className="text-2xl font-bold text-white">Welcome back</h2>
           <p className="text-gray-400 mt-1">
-            Sign in to continue to Jon Doe's space.
+            Sign in to continue to {brand}'s space.
           </p>
 
           {!configured && (

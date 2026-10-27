@@ -3,6 +3,7 @@ import Skills from "./components/Skills";
 import Projects from "./components/Projects";
 import Contact from "./components/Contact";
 import { Route, Routes, Navigate } from "react-router-dom";
+import { MotionConfig } from "framer-motion";
 import Navbar from "./components/Navbar";
 import Hero from "./components/Hero";
 import LoginPage from "./components/LoginPage";
@@ -21,7 +22,10 @@ import { PortfolioGate } from "./components/PortfolioGate";
 
 const App = () => {
   return (
-    <>
+    // reducedMotion="user" honors the OS "reduce motion" setting — entrance
+    // and hover animations collapse to simple opacity fades for anyone who
+    // asks their device for less.
+    <MotionConfig reducedMotion="user">
       <Navbar />
       <Routes>
         {/* Public showcase — anyone can browse. Signed-out visitors see the
@@ -157,7 +161,7 @@ const App = () => {
       {/* First-visit onboarding — greets a brand-new builder once, above
           everything else, on whatever page they landed on. */}
       <OnboardingGate />
-    </>
+    </MotionConfig>
   );
 };
 
